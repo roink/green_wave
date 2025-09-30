@@ -8,6 +8,7 @@ from multiprocessing import shared_memory
 from pathlib import Path
 from typing import Iterable, Tuple
 
+import h5py
 import numpy as np
 from joblib import Parallel, delayed
 from scipy.ndimage import median_filter
@@ -21,7 +22,7 @@ from process_priority import lower_process_priority
 # Paths and constants
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-NDVI_STACK_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_filtered.npz"
+NDVI_STACK_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 OUTPUT_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_fit_params.npz"
 
 ROW_START, ROW_END = 320, 1198
@@ -176,9 +177,9 @@ def main() -> None:
         raise FileNotFoundError(f"NDVI stack not found at {NDVI_STACK_PATH}")
 
     print(f"Loading NDVI stack from {NDVI_STACK_PATH} …")
-    data = np.load(NDVI_STACK_PATH)
-    ndvi_stack = data["ndvi_stack"]
-    METADATA = data["metadata"]
+    with h5py.File(NDVI_STACK_PATH, "r") as h5f:
+        ndvi_stack = h5f["ndvi_stack"][:]
+        METADATA = h5f["metadata"][:]
 
     print(f"Loaded NDVI stack shape: {ndvi_stack.shape}")
     print(f"Metadata (first 5 entries): {METADATA[:5]}")
