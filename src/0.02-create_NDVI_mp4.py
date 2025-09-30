@@ -1,137 +1,94 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Generate NDVI frame sequences and assemble MP4 videos."""
 
-# In[13]:
+from __future__ import annotations
 
+import glob
+import multiprocessing
+from pathlib import Path
 
-import os
-import numpy as np
+import cv2
 import h5py
 import matplotlib.pyplot as plt
-import cv2
+import numpy as np
 from tqdm import tqdm
-import multiprocessing
-import glob
+
+HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5")
+FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+GLOBAL_FRAMES_DIR = FIGURE_ROOT / "frames" / "global"
+EUROPE_FRAMES_DIR = FIGURE_ROOT / "frames" / "europe"
+VIDEO_DIR = FIGURE_ROOT / "video"
+
+ROW_START, ROW_END = 320, 1198
+COL_START, COL_END = 3335, 4553
+
+metadata: np.ndarray | None = None
 
 
-# In[11]:
+def ensure_directories() -> None:
+    """Ensure the output directories exist."""
+
+    for directory in (GLOBAL_FRAMES_DIR, EUROPE_FRAMES_DIR, VIDEO_DIR):
+        directory.mkdir(parents=True, exist_ok=True)
 
 
-# -------------------------------
-# Define paths and create folders
-# -------------------------------
+def load_metadata() -> tuple[np.ndarray, int]:
+    """Load dataset metadata and return it along with the timestep count."""
 
-# Path to the pre-processed HDF5 file
-hdf5_file = "/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5"
-
-# Directories to save global and Europe frames
-global_frames_dir = "/work/pschluet/green_wave/data/intermediate/NDVI-global-frames"
-europe_frames_dir = "/work/pschluet/green_wave/data/intermediate/NDVI-europe-frames"
-os.makedirs(global_frames_dir, exist_ok=True)
-os.makedirs(europe_frames_dir, exist_ok=True)
+    with h5py.File(HDF5_FILE, "r") as h5f:
+        metadata_array = h5f["metadata"][:]
+        num_timesteps = h5f["ndvi_stack"].shape[0]
+    print(f"Loaded metadata for {num_timesteps} time steps from {HDF5_FILE}")
+    return metadata_array, num_timesteps
 
 
-# In[3]:
+def process_timestep(index: int) -> str:
+    """Generate both global and European NDVI frames for the requested index."""
 
+    assert metadata is not None, "Metadata must be loaded before processing frames"
 
-# -------------------------------
-# Define Europe bounding box indices (pixels)
-# -------------------------------
-row_start, row_end = 320, 1198
-col_start, col_end = 3335, 4553
-
-
-# In[4]:
-
-
-# -------------------------------
-# Load metadata and get dataset shape
-# -------------------------------
-with h5py.File(hdf5_file, "r") as h5f:
-    num_timesteps = h5f["ndvi_stack"].shape[0]  # Number of time steps
-    metadata = h5f["metadata"][:]  # Load metadata array (year, doy)
-
-
-# In[5]:
-
-
-def process_timestep(i):
-    """Generate and save NDVI plots for a given time index."""
-    # Import gc in worker (if not already imported)
-    import gc
-
-    # Open the HDF5 file in each worker process
-    with h5py.File(hdf5_file, "r") as h5f:
+    with h5py.File(HDF5_FILE, "r") as h5f:
         ndvi_stack = h5f["ndvi_stack"]
-        year, doy = metadata[i]  # Get year, doy from pre-loaded metadata
-        ndvi_data = ndvi_stack[i, :, :]  # Read one time step
+        year, doy = metadata[index]
+        ndvi_data = ndvi_stack[index, :, :]
 
-    # ----- Global NDVI Plot -----
-    fig, ax = plt.subplots(figsize=(10, 6))
+    figure_kwargs = dict(figsize=(10, 6))
+
+    fig, ax = plt.subplots(**figure_kwargs)
     img = ax.imshow(ndvi_data, cmap="RdYlGn", vmin=-2000, vmax=10000)
-    plt.colorbar(img, label="NDVI Value", ax=ax)
+    fig.colorbar(img, label="NDVI Value", ax=ax)
     ax.set_title(f"NDVI Value {year} day {doy:03d}")
-    global_frame_path = os.path.join(global_frames_dir, f"ndvi_global_{year}_{doy:03d}.png")
-    plt.savefig(global_frame_path, dpi=300, bbox_inches='tight')
-    plt.close(fig)  # Explicitly close the figure
+    global_frame_path = GLOBAL_FRAMES_DIR / f"ndvi_global_{year}_{doy:03d}.png"
+    fig.savefig(global_frame_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
-    # ----- Europe NDVI Plot (Cropped) -----
-    europe_ndvi = ndvi_data[row_start:row_end, col_start:col_end]
-    fig, ax = plt.subplots(figsize=(10, 6))
+    europe_ndvi = ndvi_data[ROW_START:ROW_END, COL_START:COL_END]
+    fig, ax = plt.subplots(**figure_kwargs)
     img = ax.imshow(europe_ndvi, cmap="RdYlGn", vmin=-2000, vmax=10000)
-    plt.colorbar(img, label="NDVI Value", ax=ax)
+    fig.colorbar(img, label="NDVI Value", ax=ax)
     ax.set_title(f"NDVI Value Europe {year} day {doy:03d}")
-    europe_frame_path = os.path.join(europe_frames_dir, f"ndvi_europe_{year}_{doy:03d}.png")
-    plt.savefig(europe_frame_path, dpi=300, bbox_inches='tight')
-    plt.close(fig)  # Explicitly close the figure
+    europe_frame_path = EUROPE_FRAMES_DIR / f"ndvi_europe_{year}_{doy:03d}.png"
+    fig.savefig(europe_frame_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
-    # Delete large arrays and force garbage collection
-    del ndvi_data, europe_ndvi
-    gc.collect()
-
-    return f"Processed {year}-{doy}"
+    return f"Processed {year}-{doy:03d}"
 
 
-# In[ ]:
+def create_video(frames_dir: Path, output_path: Path, fps: int = 10) -> None:
+    """Create a video from the frames stored in ``frames_dir``."""
 
-
-# Use fork (on Unix) and recycle each worker after one task
-multiprocessing.set_start_method("fork")
-num_workers = min(multiprocessing.cpu_count(), num_timesteps)
-
-# Setting maxtasksperchild=1 forces a worker to exit after one task,
-# which can help avoid long-lived memory leaks.
-with multiprocessing.Pool(processes=num_workers, maxtasksperchild=1) as pool:
-    results = list(tqdm(pool.imap_unordered(process_timestep, range(num_timesteps)),
-                        total=num_timesteps,
-                        desc="Generating Frames"))
-print("Frames saved successfully!")
-
-
-# In[14]:
-
-
-# -------------------------------
-# Create videos from the generated frames
-# -------------------------------
-
-def create_video(frames_dir, output_path, fps=10):
-    """Create an MP4 video from PNG frames in a directory."""
-    frame_files = sorted(glob.glob(os.path.join(frames_dir, "*.png")))
+    frame_files = sorted(glob.glob(str(frames_dir / "*.png")))
     if not frame_files:
         print(f"No frames found in {frames_dir}, skipping video creation.")
         return
 
-    # Read first frame to get video size
     frame = cv2.imread(frame_files[0])
     height, width, _ = frame.shape
 
-    # Create video writer
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
-    video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
-    # Write frames to video
-    for frame_file in tqdm(frame_files, desc=f"Creating video: {output_path}"):
+    for frame_file in tqdm(frame_files, desc=f"Creating video: {output_path.name}"):
         frame = cv2.imread(frame_file)
         video_writer.write(frame)
 
@@ -139,13 +96,39 @@ def create_video(frames_dir, output_path, fps=10):
     cv2.destroyAllWindows()
     print(f"Video saved at {output_path}")
 
-# Create videos
-create_video(global_frames_dir, "/work/pschluet/green_wave/data/intermediate/NDVI-global.mp4")
-create_video(europe_frames_dir, "/work/pschluet/green_wave/data/intermediate/NDVI-europe.mp4")
+
+def generate_frames(num_timesteps: int) -> None:
+    """Generate frames for all available time steps using multiprocessing."""
+
+    multiprocessing.set_start_method("fork", force=True)
+    worker_count = min(multiprocessing.cpu_count(), num_timesteps)
+
+    with multiprocessing.Pool(processes=worker_count, maxtasksperchild=1) as pool:
+        for _ in tqdm(
+            pool.imap_unordered(process_timestep, range(num_timesteps)),
+            total=num_timesteps,
+            desc="Generating Frames",
+        ):
+            pass
+
+    print(f"Finished generating {num_timesteps} frames per region.")
 
 
-# In[ ]:
+def main() -> None:
+    ensure_directories()
+    global metadata
+    metadata, num_timesteps = load_metadata()
+    generate_frames(num_timesteps)
+
+    create_video(
+        GLOBAL_FRAMES_DIR,
+        VIDEO_DIR / "NDVI-global.mp4",
+    )
+    create_video(
+        EUROPE_FRAMES_DIR,
+        VIDEO_DIR / "NDVI-europe.mp4",
+    )
 
 
-
-
+if __name__ == "__main__":
+    main()

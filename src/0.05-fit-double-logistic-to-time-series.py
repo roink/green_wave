@@ -1,349 +1,224 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Fit double-logistic curves to NDVI time-series data."""
 
-# In[1]:
+from __future__ import annotations
 
+from pathlib import Path
 
-import os
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 
+HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5")
+FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+PREPROCESS_DIR = FIGURE_ROOT / "preprocessing"
+FIT_SINGLE_DIR = FIGURE_ROOT / "fit-single-year"
+FIT_MULTI_DIR = FIGURE_ROOT / "fit-multi-year"
+FIT_TRANSFORM_DIR = FIGURE_ROOT / "fit-transformed"
 
-# In[2]:
+for directory in (PREPROCESS_DIR, FIT_SINGLE_DIR, FIT_MULTI_DIR, FIT_TRANSFORM_DIR):
+    directory.mkdir(parents=True, exist_ok=True)
 
 
-# Path to HDF5 file
-hdf5_file = "/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5"
+def lat_lon_to_indices(lat: float, lon: float) -> tuple[int, int]:
+    row_idx = int((90 - lat) / 0.05)
+    col_idx = int((lon + 180) / 0.05)
+    print(f"Converted ({lat}°, {lon}°) -> row {row_idx}, column {col_idx}")
+    return row_idx, col_idx
 
 
-# In[3]:
+def get_ndvi_timeseries(lat: float, lon: float) -> tuple[list[pd.Timestamp], np.ndarray]:
+    row_idx, col_idx = lat_lon_to_indices(lat, lon)
 
+    with h5py.File(HDF5_FILE, "r") as h5f:
+        metadata = h5f["metadata"][:]
+        ndvi_timeseries = h5f["ndvi_stack"][:, row_idx, col_idx]
 
-# -------------------------------
-# Function to extract NDVI time series for a given lat/lon
-# -------------------------------
-def get_ndvi_timeseries(lat, lon):
-    """Extract NDVI time series from HDF5 for a given latitude & longitude."""
-    
-    # Convert latitude & longitude to row/column indices
-    row_idx = int((90 - lat) / 0.05)  # Convert latitude to row
-    col_idx = int((lon + 180) / 0.05)  # Convert longitude to column
-    print(f"Nearest pixel index: row={row_idx}, col={col_idx}")
-
-    # Open HDF5 file and read metadata and NDVI time series
-    with h5py.File(hdf5_file, "r") as h5f:
-        metadata = h5f["metadata"][:]  # Load (year, doy)
-        ndvi_timeseries = h5f["ndvi_stack"][:, row_idx, col_idx]  # Load only the required pixel
-
-    # Convert metadata (year, DOY) to actual dates
     dates = [pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in metadata]
-
+    print(f"Loaded {len(dates)} observations for ({lat}°, {lon}°)")
     return dates, ndvi_timeseries
 
 
-# In[4]:
-
-
-# -------------------------------
-# Function to process NDVI time series
-# -------------------------------
-def process_ndvi(dates, ndvi_timeseries):
-    """Apply winter correction and moving median filter to NDVI time series."""
-
-    # Compute 2.5% quantile (winter baseline)
-    winter_ndvi = np.nanquantile(ndvi_timeseries, 0.025)
-
-    # Apply winter NDVI correction (clip values below threshold)
+def process_ndvi(dates: list[pd.Timestamp], ndvi_timeseries: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    winter_ndvi = float(np.nanquantile(ndvi_timeseries, 0.025))
     corrected_ndvi = np.copy(ndvi_timeseries)
     corrected_ndvi[ndvi_timeseries < winter_ndvi] = winter_ndvi
 
-    # Replace missing values in winter period (DOY 300-365 & 1-60)
     for i, date in enumerate(dates):
         doy = date.day_of_year
         if np.isnan(corrected_ndvi[i]) and (doy >= 300 or doy <= 60):
             corrected_ndvi[i] = winter_ndvi
 
-    # Apply Moving Median Filter (window size = 3)
     filtered_ndvi = median_filter(corrected_ndvi, size=3)
-
     return winter_ndvi, corrected_ndvi, filtered_ndvi
 
 
-# In[5]:
-
-
-# -------------------------------
-# Function to plot NDVI time series
-# -------------------------------
-def plot_ndvi(lat, lon):
-    """Extract, process, and plot NDVI time series for a given location."""
-    
+def plot_ndvi(lat: float, lon: float) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
     winter_ndvi, corrected_ndvi, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
 
-    plt.figure(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(dates, ndvi_timeseries, marker="o", linestyle="-", color="gray", alpha=0.6, label="Raw NDVI")
+    ax.axhline(y=winter_ndvi, color="blue", linestyle="--", label=f"Winter NDVI ({winter_ndvi:.3f})")
+    ax.plot(dates, corrected_ndvi, marker="o", linestyle="-", color="green", label="Corrected NDVI")
+    ax.plot(dates, filtered_ndvi, marker="o", linestyle="-", color="red", label="Filtered NDVI (Moving Median)")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("NDVI")
+    ax.set_title(f"NDVI Time Series at ({lat}°N, {lon}°E)")
+    ax.legend()
+    ax.grid(True)
 
-    # Raw NDVI
-    plt.plot(dates, ndvi_timeseries, marker="o", linestyle="-", color="gray", alpha=0.6, label="Raw NDVI")
+    safe_lat = str(lat).replace(".", "p")
+    safe_lon = str(lon).replace(".", "p")
+    output_path = PREPROCESS_DIR / f"ndvi-preprocessing-{safe_lat}N-{safe_lon}E.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved preprocessing figure to {output_path}")
 
-    # Winter NDVI baseline
-    plt.axhline(y=winter_ndvi, color="blue", linestyle="--", label=f"Winter NDVI ({winter_ndvi:.3f})")
-
-    # Corrected NDVI (baseline applied)
-    plt.plot(dates, corrected_ndvi, marker="o", linestyle="-", color="green", label="Corrected NDVI")
-
-    # Filtered NDVI
-    plt.plot(dates, filtered_ndvi, marker="o", linestyle="-", color="red", label="Filtered NDVI (Moving Median)")
-
-    plt.xlabel("Date")
-    plt.ylabel("NDVI")
-    plt.title(f"NDVI Time Series at ({lat}°N, {lon}°E)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-# In[6]:
+    return output_path
 
 
-# -------------------------------
-# Double-Logistic Function for Seasonal Fitting
-# -------------------------------
-def double_logistic(t, xmidSNDVI, scalSNDVI, xmidANDVI, scalANDVI, bias, scale):
-    """
-    Double-logistic function for fitting annual NDVI profiles.
-    t: Day of year (DOY)
-    xmidSNDVI, scalSNDVI: Spring inflection point & scale
-    xmidANDVI, scalANDVI: Autumn inflection point & scale
-    bias: Baseline NDVI
-    scale: Scaling factor to adjust NDVI amplitude
-    """
+def double_logistic(t: np.ndarray | float, xmidSNDVI: float, scalSNDVI: float, xmidANDVI: float, scalANDVI: float, bias: float, scale: float) -> np.ndarray:
     spring = 1 / (1 + np.exp((xmidSNDVI - t) / scalSNDVI))
     autumn = 1 / (1 + np.exp((xmidANDVI - t) / scalANDVI))
     return bias + scale * (spring - autumn)
 
 
-# In[7]:
-
-
-# -------------------------------
-# Function to Fit Seasonal NDVI Curve
-# -------------------------------
-def fit_seasonal_curve(lat, lon, selected_year):
-    """Fit a double-logistic curve to NDVI time series for a given year."""
-    
+def fit_seasonal_curve(lat: float, lon: float, selected_year: int) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
     _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
 
-    # Create a mask for the selected year
-    year_mask = [date.year == selected_year for date in dates]
+    mask = np.array([date.year == selected_year for date in dates])
+    doy_values = np.array([date.day_of_year for date in np.array(dates)[mask]])
+    ndvi_values = np.array(filtered_ndvi)[mask]
 
-    # Extract DOY and NDVI values for the selected year
-    doy_values = np.array([date.day_of_year for i, date in enumerate(dates) if year_mask[i]])
-    ndvi_values = np.array([filtered_ndvi[i] for i in range(len(filtered_ndvi)) if year_mask[i]])
-
-    # Remove NaNs (curve fitting requires finite values)
     valid_mask = ~np.isnan(ndvi_values)
     doy_values = doy_values[valid_mask]
     ndvi_values = ndvi_values[valid_mask]
 
-    # Initial parameter guesses
-    initial_guess = [120, 20, 270, 25, np.min(ndvi_values), np.max(ndvi_values) - np.min(ndvi_values)]
-
-    # Fit the double-logistic function
+    initial_guess = [120, 20, 270, 25, float(np.min(ndvi_values)), float(np.max(ndvi_values) - np.min(ndvi_values))]
     params, _ = curve_fit(double_logistic, doy_values, ndvi_values, p0=initial_guess)
 
-    # Generate fitted curve
-    doy_full = np.arange(1, 366)  # Full year for smooth plotting
-    ndvi_fitted = double_logistic(doy_full, *params)
-
-    # Plot fitted curve
-    plt.figure(figsize=(10, 5))
-    plt.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
-    plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
-    plt.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
-    plt.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
-
-    plt.xlabel("Day of Year")
-    plt.ylabel("NDVI")
-    plt.title(f"NDVI Seasonal Curve Fitting - {selected_year} at ({lat}°N, {lon}°E)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
-# In[8]:
-
-
-plot_ndvi(60.0, 16)  # NDVI at 60°N, 16°E
-
-
-# In[9]:
-
-
-fit_seasonal_curve(60.0, 16, selected_year=2005)  # Fit seasonal cycle for 2005
-
-
-# In[10]:
-
-
-# -------------------------------
-# Function to Fit Seasonal NDVI Curve for Multiple Years (2002-2010)
-# -------------------------------
-def fit_seasonal_curve_all_years(lat, lon, start_year=2002, end_year=2010, save = False):
-    """Fit a double-logistic curve to NDVI time series for multiple years."""
-    
-    dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
-
-    doy_values = np.array([date.day_of_year for i, date in enumerate(dates) if start_year <= date.year <= end_year])
-    ndvi_values = np.array([filtered_ndvi[i] for i in range(len(filtered_ndvi)) if start_year <= dates[i].year <= end_year])
-
-    # Remove NaNs
-    valid_mask = ~np.isnan(ndvi_values)
-    doy_values = doy_values[valid_mask]
-    ndvi_values = ndvi_values[valid_mask]
-
-    # Fit the function
-    initial_guess = [120, 20, 270, 25, np.min(ndvi_values), np.max(ndvi_values) - np.min(ndvi_values)]
-    params, _ = curve_fit(double_logistic, doy_values, ndvi_values, p0=initial_guess)
-
-    # Generate fitted curve
     doy_full = np.arange(1, 366)
     ndvi_fitted = double_logistic(doy_full, *params)
 
-    # Plot fitted curve
-    plt.figure(figsize=(10, 5))
-    plt.scatter(doy_values, ndvi_values, color="black", alpha=0.3, label="Observed NDVI")
-    plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", linewidth=2, label="Fitted Double-Logistic Curve")
-    plt.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
-    plt.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
+    ax.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
+    ax.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
+    ax.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
+    ax.set_xlabel("Day of Year")
+    ax.set_ylabel("NDVI")
+    ax.set_title(f"NDVI Seasonal Curve Fitting - {selected_year} at ({lat}°N, {lon}°E)")
+    ax.legend()
+    ax.grid(True)
 
-    plt.xlabel("Day of Year")
-    plt.ylabel("NDVI")
-    plt.title(f"NDVI Seasonal Curve Fitting ({start_year}-{end_year}) at ({lat}°N, {lon}°E)")
-    plt.legend()
-    plt.grid(True)
-        
-    if save:
-        # Save the figure
-        output_path = "../figures/double_logistic_fit"
-        plt.savefig(f"{output_path}.png", dpi=300, bbox_inches='tight')
-        plt.savefig(f"{output_path}.eps", format='eps', bbox_inches='tight')                            
-                                 
-    plt.show()
+    safe_lat = str(lat).replace(".", "p")
+    safe_lon = str(lon).replace(".", "p")
+    output_path = FIT_SINGLE_DIR / f"double-logistic-{safe_lat}N-{safe_lon}E-{selected_year}.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved single-year fit to {output_path}")
 
-
-# In[11]:
+    return output_path
 
 
-fit_seasonal_curve_all_years(60.0, 16, 2000, 2024, save = True)
-
-
-# In[12]:
-
-
-fit_seasonal_curve_all_years(50.0, 16, 2000, 2024)
-
-
-# In[13]:
-
-
-fit_seasonal_curve_all_years(40.0, 16, 2000, 2024)
-
-
-# In[14]:
-
-
-fit_seasonal_curve_all_years(30.0, 16, 2000, 2024)
-
-
-# In[15]:
-
-
-fit_seasonal_curve_all_years(20.0, 16, 2000, 2024)
-
-
-# In[16]:
-
-
-def shift_doy(doy_values, peak_doy, center_doy=183):
-    """Shift DOY values such that the peak DOY is at the center of the year."""
-    shifted_doy = (doy_values - peak_doy + center_doy) % 365
-    return shifted_doy
-
-
-def fit_seasonal_curve_transformed(lat, lon, start_year=2002, end_year=2024):
-    """Fit a double-logistic curve using transformed time for better seasonal alignment."""
+def fit_seasonal_curve_all_years(lat: float, lon: float, start_year: int = 2002, end_year: int = 2010) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
     _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
-    
-    # Extract data for selected years
+
+    mask = np.array([start_year <= date.year <= end_year for date in dates])
+    doy_values = np.array([date.day_of_year for date in np.array(dates)[mask]])
+    ndvi_values = np.array(filtered_ndvi)[mask]
+
+    valid_mask = ~np.isnan(ndvi_values)
+    doy_values = doy_values[valid_mask]
+    ndvi_values = ndvi_values[valid_mask]
+
+    initial_guess = [120, 20, 270, 25, float(np.min(ndvi_values)), float(np.max(ndvi_values) - np.min(ndvi_values))]
+    params, _ = curve_fit(double_logistic, doy_values, ndvi_values, p0=initial_guess)
+
+    doy_full = np.arange(1, 366)
+    ndvi_fitted = double_logistic(doy_full, *params)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.scatter(doy_values, ndvi_values, color="black", alpha=0.3, label="Observed NDVI")
+    ax.plot(doy_full, ndvi_fitted, color="red", linestyle="--", linewidth=2, label="Fitted Double-Logistic Curve")
+    ax.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
+    ax.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
+    ax.set_xlabel("Day of Year")
+    ax.set_ylabel("NDVI")
+    ax.set_title(f"NDVI Seasonal Curve Fitting ({start_year}-{end_year}) at ({lat}°N, {lon}°E)")
+    ax.legend()
+    ax.grid(True)
+
+    safe_lat = str(lat).replace(".", "p")
+    safe_lon = str(lon).replace(".", "p")
+    output_path = FIT_MULTI_DIR / f"double-logistic-{safe_lat}N-{safe_lon}E-{start_year}-{end_year}.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved multi-year fit to {output_path}")
+
+    return output_path
+
+
+def shift_doy(doy_values: np.ndarray, peak_doy: int, center_doy: int = 183) -> np.ndarray:
+    return (doy_values - peak_doy + center_doy) % 365
+
+
+def fit_seasonal_curve_transformed(lat: float, lon: float, start_year: int = 2002, end_year: int = 2024) -> Path:
+    dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
+    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+
     mask = np.array([start_year <= date.year <= end_year for date in dates])
     dates = np.array(dates)[mask]
     ndvi_values = np.array(filtered_ndvi)[mask]
     doy_values = np.array([date.day_of_year for date in dates])
-    
-    # Determine peak DOY
-    peak_doy = doy_values[np.nanargmax(ndvi_values)]
-    
-    # Transform time
+
+    peak_doy = int(doy_values[np.nanargmax(ndvi_values)])
     doy_shifted = shift_doy(doy_values, peak_doy)
-    
-    # Fit the double-logistic function
-    initial_guess = [120, 20, 270, 25, np.min(ndvi_values), np.max(ndvi_values) - np.min(ndvi_values)]
-    params, _ = curve_fit(double_logistic, doy_shifted, ndvi_values, p0=initial_guess,maxfev = 14000)
-    
-    # Generate fitted curve in transformed time
+
+    initial_guess = [120, 20, 270, 25, float(np.min(ndvi_values)), float(np.max(ndvi_values) - np.min(ndvi_values))]
+    params, _ = curve_fit(double_logistic, doy_shifted, ndvi_values, p0=initial_guess, maxfev=14000)
+
     doy_full = np.arange(1, 366)
     ndvi_fitted_shifted = double_logistic(doy_full, *params)
-    
-    # Revert the transformation for visualization
     doy_original = shift_doy(doy_full, -peak_doy)
-    
-    # Plot results
-    plt.figure(figsize=(10, 5))
-    plt.scatter(doy_values, ndvi_values, color="black", alpha=0.3, label="Observed NDVI")
-    plt.plot(doy_original[:-1], ndvi_fitted_shifted[:-1], color="red", linestyle="--", linewidth=2, label="Fitted Double-Logistic Curve")
-    plt.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
-    plt.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
-    
-    plt.xlabel("Day of Year")
-    plt.ylabel("NDVI")
-    plt.title(f"NDVI Seasonal Curve Fitting with Time Shift ({start_year}-{end_year}) at ({lat}°N, {lon}°E)")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.scatter(doy_values, ndvi_values, color="black", alpha=0.3, label="Observed NDVI")
+    ax.plot(doy_original[:-1], ndvi_fitted_shifted[:-1], color="red", linestyle="--", linewidth=2, label="Fitted Double-Logistic Curve")
+    ax.axvline(params[0], color="green", linestyle=":", label="Spring Inflection")
+    ax.axvline(params[2], color="orange", linestyle=":", label="Autumn Inflection")
+    ax.set_xlabel("Day of Year")
+    ax.set_ylabel("NDVI")
+    ax.set_title(f"NDVI Seasonal Curve Fitting with Time Shift ({start_year}-{end_year}) at ({lat}°N, {lon}°E)")
+    ax.legend()
+    ax.grid(True)
+
+    safe_lat = str(lat).replace(".", "p")
+    safe_lon = str(lon).replace(".", "p")
+    output_path = FIT_TRANSFORM_DIR / f"double-logistic-transformed-{safe_lat}N-{safe_lon}E-{start_year}-{end_year}.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved transformed fit to {output_path}")
+
+    return output_path
 
 
-# Example usage
-fit_seasonal_curve_transformed(60.0, 16, 2000, 2024)
+def main() -> None:
+    plot_ndvi(60.0, 16.0)
+    fit_seasonal_curve(60.0, 16.0, selected_year=2005)
+
+    for lat in (60.0, 50.0, 40.0, 30.0, 20.0):
+        fit_seasonal_curve_all_years(lat, 16.0, 2000, 2024)
+
+    for lat in (60.0, 50.0, 40.0, 30.0):
+        fit_seasonal_curve_transformed(lat, 16.0, 2000, 2024)
 
 
-# In[17]:
-
-
-fit_seasonal_curve_transformed(50.0, 16, 2000, 2024)
-
-
-# In[18]:
-
-
-fit_seasonal_curve_transformed(40.0, 16, 2000, 2024)
-
-
-# In[19]:
-
-
-fit_seasonal_curve_transformed(30.0, 16, 2000, 2024)
-
-
-# In[ ]:
-
-
-
-
+if __name__ == "__main__":
+    main()
