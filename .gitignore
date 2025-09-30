@@ -30,3 +30,22 @@ build/
 
 # Ignore Jupyter notebook checkpoints
 .ipynb_checkpoints/
+
+# Data directories (track structure with .gitkeep files only)
+/data/*
+!/data/
+!/data/.gitkeep
+/data/raw/*
+!/data/raw/
+!/data/raw/.gitkeep
+/data/intermediate/*
+!/data/intermediate/
+!/data/intermediate/.gitkeep
+/data/finished/*
+!/data/finished/
+!/data/finished/.gitkeep
+
+# Figure directory (track structure with .gitkeep files only)
+/figure/*
+!/figure/
+!/figure/.gitkeep
