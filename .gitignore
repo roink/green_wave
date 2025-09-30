@@ -35,6 +35,7 @@ build/
 /data/*
 !/data/
 !/data/.gitkeep
+!/data/README.md
 /data/raw/*
 !/data/raw/
 !/data/raw/.gitkeep

@@ -2,8 +2,10 @@
 
 GREP_OPTIONS=''
 
-# Define the target directory
-TARGET_DIR="/work/pschluet/green_wave/data"
+# Define the target directory for raw NDVI files within the project tree
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TARGET_DIR="$PROJECT_ROOT/data/raw/NDVI"
 mkdir -p "$TARGET_DIR"
 
 cookiejar=$(mktemp cookies.XXXXXXXXXX)
@@ -69,13 +71,20 @@ fetch_urls() {
   if command -v curl >/dev/null 2>&1; then
       setup_auth_curl
       while read -r line; do
+        [[ -z "$line" ]] && continue
         # Get everything after the last '/'
         filename="${line##*/}"
 
         # Strip everything after '?'
         stripped_query_params="${filename%%\?*}"
+        output_path="$TARGET_DIR/$stripped_query_params"
 
-        curl -f -b "$cookiejar" -c "$cookiejar" -L --netrc-file "$netrc" -g -o $stripped_query_params -- $line && echo || exit_with_error "Command failed with error. Please retrieve the data manually."
+        if [ -f "$output_path" ]; then
+          echo "Skipping existing file $output_path"
+          continue
+        fi
+
+        curl -f -b "$cookiejar" -c "$cookiejar" -L --netrc-file "$netrc" -g -o "$output_path" -- "$line" && echo || exit_with_error "Command failed with error. Please retrieve the data manually."
       done;
   elif command -v wget >/dev/null 2>&1; then
       # We can't use wget to poke provider server to get info whether or not URS was integrated without download at least one of the files.
@@ -85,13 +94,20 @@ fetch_urls() {
       echo
       setup_auth_wget
       while read -r line; do
+        [[ -z "$line" ]] && continue
         # Get everything after the last '/'
         filename="${line##*/}"
 
         # Strip everything after '?'
         stripped_query_params="${filename%%\?*}"
+        output_path="$TARGET_DIR/$stripped_query_params"
 
-        wget --load-cookies "$cookiejar" --save-cookies "$cookiejar" --output-document $stripped_query_params --keep-session-cookies -- $line && echo || exit_with_error "Command failed with error. Please retrieve the data manually."
+        if [ -f "$output_path" ]; then
+          echo "Skipping existing file $output_path"
+          continue
+        fi
+
+        wget --load-cookies "$cookiejar" --save-cookies "$cookiejar" --output-document "$output_path" --keep-session-cookies -- "$line" && echo || exit_with_error "Command failed with error. Please retrieve the data manually."
       done;
   else
       exit_with_error "Error: Could not find a command-line downloader.  Please install curl or wget"

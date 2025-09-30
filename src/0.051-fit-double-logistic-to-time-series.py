@@ -12,7 +12,8 @@ import pandas as pd
 from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 
-HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 PREPROCESS_DIR = FIGURE_ROOT / "preprocessing"
 FIT_SINGLE_DIR = FIGURE_ROOT / "fit-single-year"

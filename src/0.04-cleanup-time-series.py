@@ -11,7 +11,8 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import median_filter
 
-HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 SINGLE_LOCATION_DIR = FIGURE_ROOT / "locations"
 COMPARISON_DIR = FIGURE_ROOT / "yearly-comparison"

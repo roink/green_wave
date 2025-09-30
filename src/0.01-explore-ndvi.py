@@ -10,9 +10,8 @@ import numpy as np
 from pyhdf.SD import SD, SDC
 
 
-FILE_PATH = Path(
-    "/data/hescor/pschluet/green_wave/data/NDVI/MOD13C1.A2009241.061.2021141172023.hdf"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FILE_PATH = PROJECT_ROOT / "data" / "raw" / "NDVI" / "MOD13C1.A2009241.061.2021141172023.hdf"
 
 
 def figure_directory() -> Path:
