@@ -1,0 +1,32 @@
+# Ignore large data files
+*.hdf
+*.HDF
+*.h5
+*.nc
+
+# Ignore large binary outputs
+*.pdf
+*.odp
+*.ppt
+*.pptx
+*.doc
+*.docx
+
+# Ignore temporary and cache files
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+
+# Ignore Python build/cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
