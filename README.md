@@ -87,6 +87,21 @@ workflow. The script authenticates against NASA Earthdata, creates
 are already present so it can be re-run safely. Expect to download roughly
 **54 GB** of HDF data for the full set of scenes referenced in the repository.
 
+### Downloading orbital insolation forcing (~15 MB)
+
+Daily/seasonal insolation tables from Berger-style orbital solutions are
+available from the NOAA Paleoclimatology archive. Use the Python helper script
+to mirror the directory into the repository-local data store:
+
+```bash
+python src/download_insolation_data.py
+```
+
+The script creates `data/raw/insolation/` if needed, inspects the NOAA directory
+listing, and only downloads files that are not already present so repeated
+invocations are safe. Pass `--list-only` to see which files would be fetched or
+`--verbose` for detailed logging during the transfer.
+
 ### Project data directory layout
 
 All staging for raw inputs, intermediate artifacts, and publication-ready
