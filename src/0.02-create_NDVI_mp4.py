@@ -98,6 +98,8 @@ def create_video(frames_dir: Path, output_path: Path, fps: int = 10) -> None:
     video_writer.release()
     cv2.destroyAllWindows()
     print(f"Video saved at {output_path}")
+
+
 def generate_frames(num_timesteps: int) -> None:
     """Generate frames for all available time steps using multiprocessing."""
 

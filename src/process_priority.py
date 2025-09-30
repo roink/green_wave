@@ -1,4 +1,5 @@
 """Utilities for adjusting the scheduling priority of processes."""
+
 from __future__ import annotations
 
 import os

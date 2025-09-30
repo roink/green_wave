@@ -1,4 +1,5 @@
 """Visualise warped sine constructions without relying on notebook widgets."""
+
 from __future__ import annotations
 
 from itertools import product
@@ -46,7 +47,6 @@ def plot_phase_modulation() -> Path:
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
     for ax, (power, phase_shift) in zip(axes.flat, configs):
-        warped = g(x, period, power) * period
         y = np.sin(2 * np.pi * x + power * np.sin(2 * np.pi * (x - phase_shift)))
         ax.plot(x, y)
         ax.set_title(f"p={power}, phase shift={phase_shift}")
@@ -71,11 +71,14 @@ def plot_sigmoid_modulation() -> Path:
     p_values = [0.25, 0.5, 0.75]
     offsets = [-1.0, 0.0, 1.0]
 
-    fig, axes = plt.subplots(len(p_values), len(offsets), figsize=(12, 8), sharex=True, sharey=True)
+    fig, axes = plt.subplots(
+        len(p_values), len(offsets), figsize=(12, 8), sharex=True, sharey=True
+    )
     for (i, power), (j, offset) in product(enumerate(p_values), enumerate(offsets)):
         ax = axes[i, j]
-        warped = g(x, period, power) * period
-        y = sigmoid(np.sin(2 * np.pi * x + power * np.sin(2 * np.pi * (x - 0.25))) * 5 + offset)
+        y = sigmoid(
+            np.sin(2 * np.pi * x + power * np.sin(2 * np.pi * (x - 0.25))) * 5 + offset
+        )
         ax.plot(x, y)
         ax.set_title(f"p={power}, offset={offset}")
         ax.grid(True, linestyle=":", linewidth=0.5)

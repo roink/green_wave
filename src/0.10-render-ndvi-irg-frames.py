@@ -4,6 +4,7 @@ This script replaces its original notebook export. It loads the fitted NDVI
 parameters, prints basic diagnostics, and saves predicted NDVI as well as IRG
 frames to dedicated sub-directories within ``figure/``.
 """
+
 from __future__ import annotations
 
 import argparse

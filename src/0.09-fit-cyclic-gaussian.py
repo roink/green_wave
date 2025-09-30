@@ -1,4 +1,5 @@
 """Fit cyclic Gaussian curves to an NDVI stack stored in HDF5 format."""
+
 from __future__ import annotations
 
 import argparse
@@ -93,11 +94,18 @@ def fit_stack(
 
             x = doy[mask]
             y = filtered[mask]
-            initial_guess = [np.nanmax(y) - np.nanmin(y), x[np.argmax(y)], 30.0, np.nanmin(y)]
+            initial_guess = [
+                np.nanmax(y) - np.nanmin(y),
+                x[np.argmax(y)],
+                30.0,
+                np.nanmin(y),
+            ]
             bounds = ([0, 0, 0, -np.inf], [np.inf, 365, 365, np.inf])
 
             try:
-                popt, _ = curve_fit(gaussian_cyclic, x, y, p0=initial_guess, bounds=bounds)
+                popt, _ = curve_fit(
+                    gaussian_cyclic, x, y, p0=initial_guess, bounds=bounds
+                )
             except RuntimeError:
                 continue
 
@@ -116,12 +124,16 @@ def fit_stack(
     return maps
 
 
-def save_maps(output_path: Path, maps: dict[str, np.ndarray], metadata: np.ndarray) -> None:
+def save_maps(
+    output_path: Path, maps: dict[str, np.ndarray], metadata: np.ndarray
+) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(output_path, "w") as dst:
         for key, array in maps.items():
             dst.create_dataset(key, data=array, dtype="f4", compression="lzf")
-        dst.create_dataset("metadata", data=metadata, dtype=metadata.dtype, compression="lzf")
+        dst.create_dataset(
+            "metadata", data=metadata, dtype=metadata.dtype, compression="lzf"
+        )
 
 
 def main() -> None:

@@ -24,7 +24,9 @@ def discover_files() -> list[Path]:
 
     files = sorted(Path(path) for path in glob.glob(str(DATA_PATH / "MOD13C1.A*.hdf")))
     if not files:
-        raise FileNotFoundError(f"No HDF files matching MOD13C1 pattern found in {DATA_PATH}")
+        raise FileNotFoundError(
+            f"No HDF files matching MOD13C1 pattern found in {DATA_PATH}"
+        )
 
     print(f"Discovered {len(files)} files in {DATA_PATH}")
     return files

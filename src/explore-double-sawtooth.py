@@ -1,4 +1,5 @@
 """Explore combinations of sawtooth wave constructions and save the figures."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +25,9 @@ def sawtooth(t: np.ndarray, period: float) -> np.ndarray:
     return np.mod(t, period)
 
 
-def sawtooth_centered(t: np.ndarray, period: float, zero_point: float, slope: float = 1.0) -> np.ndarray:
+def sawtooth_centered(
+    t: np.ndarray, period: float, zero_point: float, slope: float = 1.0
+) -> np.ndarray:
     return (((t - zero_point - period / 2.0) % period) - period / 2.0) * slope
 
 
@@ -36,17 +39,23 @@ def double_sawtooth(
 ) -> np.ndarray:
     st1 = sawtooth_centered(t, period, first.zero_point, first.slope)
     st2 = sawtooth_centered(t, period, second.zero_point, second.slope)
-    crossing_start = (first.zero_point * first.slope - second.zero_point * second.slope) / (
-        first.slope - second.slope
-    )
-    crossing_end = ((first.zero_point + period) * first.slope - second.zero_point * second.slope) / (
-        first.slope - second.slope
-    )
+    crossing_start = (
+        first.zero_point * first.slope - second.zero_point * second.slope
+    ) / (first.slope - second.slope)
+    crossing_end = (
+        (first.zero_point + period) * first.slope - second.zero_point * second.slope
+    ) / (first.slope - second.slope)
     mask = ((t % period) > crossing_start) & ((t % period) < crossing_end)
     return np.where(mask, st2, st1)
 
 
-def save_plot(x: np.ndarray, ys: Iterable[np.ndarray], labels: Iterable[str], title: str, name: str) -> Path:
+def save_plot(
+    x: np.ndarray,
+    ys: Iterable[np.ndarray],
+    labels: Iterable[str],
+    title: str,
+    name: str,
+) -> Path:
     fig, ax = plt.subplots(figsize=(10, 5))
     for series, label in zip(ys, labels):
         ax.plot(x, series, label=label)
@@ -105,13 +114,12 @@ if __name__ == "__main__":
     print(f"Saved scaled comparison figure -> {combined_path}")
 
     crossing = (
-        (increase.zero_point * increase.slope - decrease.zero_point * decrease.slope)
-        / (increase.slope - decrease.slope)
-    )
+        increase.zero_point * increase.slope - decrease.zero_point * decrease.slope
+    ) / (increase.slope - decrease.slope)
     crossing_mod = (
-        ((increase.zero_point + period) * increase.slope - decrease.zero_point * decrease.slope)
-        / (increase.slope - decrease.slope)
-    )
+        (increase.zero_point + period) * increase.slope
+        - decrease.zero_point * decrease.slope
+    ) / (increase.slope - decrease.slope)
     print(
         "Crossing windows between increase/decrease segments: "
         f"{crossing:.2f} to {crossing_mod:.2f} (mod {period:.0f})"

@@ -4,6 +4,7 @@ The notebook version of this file relied on inline plotting.  This script fits
 multiple analytic curves, prints the fitted parameters, and saves the resulting
 figures to ``figure/0.052-compare-seasonal-curve-fits``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -89,7 +90,9 @@ def double_logistic(
     return bias + scale * (spring - autumn)
 
 
-def tanh_sine(t: np.ndarray, phase: float, bias: float, scale: float, sharpness: float) -> np.ndarray:
+def tanh_sine(
+    t: np.ndarray, phase: float, bias: float, scale: float, sharpness: float
+) -> np.ndarray:
     angle = (t - phase) * 2.0 * np.pi / 365.0
     numerator = np.tanh(np.sin(angle) * sharpness)
     denominator = np.tanh(sharpness) if sharpness != 0 else 1.0
@@ -111,7 +114,9 @@ def plot_fit(
 ) -> Path:
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.scatter(doy, ndvi, color="black", label="Observed NDVI", zorder=2)
-    ax.plot(x_dense, y_dense, color="red", linestyle="--", label="Fitted curve", zorder=1)
+    ax.plot(
+        x_dense, y_dense, color="red", linestyle="--", label="Fitted curve", zorder=1
+    )
     ax.set_xlabel("Day of Year")
     ax.set_ylabel("NDVI")
     ax.set_title(title)
@@ -186,7 +191,9 @@ if __name__ == "__main__":
     y_demo = sigmoid_sine(x_demo, true_a, true_k) + 0.1 * rng.normal(size=len(x_demo))
 
     demo_guess = [1.0, 1.0]
-    demo_params, _ = curve_fit(sigmoid_sine, x_demo, y_demo, p0=demo_guess, maxfev=20000)
+    demo_params, _ = curve_fit(
+        sigmoid_sine, x_demo, y_demo, p0=demo_guess, maxfev=20000
+    )
     print("Sigmoid-sine recovered parameters:")
     print(f"  amplitude: true={true_a:.2f}, fitted={demo_params[0]:.3f}")
     print(f"  steepness: true={true_k:.2f}, fitted={demo_params[1]:.3f}")
