@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import glob
 import multiprocessing
-import os
 from pathlib import Path
 
 import cv2
@@ -13,6 +12,8 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
+
+from process_priority import lower_process_priority
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
@@ -97,31 +98,6 @@ def create_video(frames_dir: Path, output_path: Path, fps: int = 10) -> None:
     video_writer.release()
     cv2.destroyAllWindows()
     print(f"Video saved at {output_path}")
-
-
-def _set_low_priority() -> None:
-    """Lower the scheduling priority of the current process if possible."""
-
-    try:
-        if os.name == "posix" and hasattr(os, "nice"):
-            # ``os.nice`` increments the niceness of the calling process, so adding
-            # 19 moves the worker to the lowest priority on Unix-like systems.
-            os.nice(19)
-        elif os.name == "nt":
-            import ctypes
-
-            PROCESS_SET_INFORMATION = 0x0200
-            BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
-
-            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-            handle = kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, os.getpid())
-            if handle:
-                kernel32.SetPriorityClass(handle, BELOW_NORMAL_PRIORITY_CLASS)
-                kernel32.CloseHandle(handle)
-    except Exception as exc:  # pragma: no cover - best-effort behaviour only
-        print(f"Warning: unable to lower process priority: {exc}")
-
-
 def generate_frames(num_timesteps: int) -> None:
     """Generate frames for all available time steps using multiprocessing."""
 
@@ -131,7 +107,7 @@ def generate_frames(num_timesteps: int) -> None:
     with multiprocessing.Pool(
         processes=worker_count,
         maxtasksperchild=1,
-        initializer=_set_low_priority,
+        initializer=lower_process_priority,
     ) as pool:
         for _ in tqdm(
             pool.imap_unordered(process_timestep, range(num_timesteps)),

@@ -8,12 +8,13 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit, OptimizeWarning
 from scipy.ndimage import median_filter
-import os
 from tqdm.notebook import tqdm
 from joblib import Parallel, delayed
 from multiprocessing import shared_memory
 from scipy.stats import linregress
 import warnings
+
+from process_priority import lower_process_priority
 
 
 # In[2]:
@@ -183,7 +184,11 @@ all_pixel_indices = [(row, col) for row in range(num_rows) for col in range(num_
 all_pixel_indices = [(row, col) for row in range(num_rows) for col in range(num_cols)]
 num_jobs = -1  # Use all CPU cores
 
-results = Parallel(n_jobs=num_jobs, backend="loky")(
+results = Parallel(
+    n_jobs=num_jobs,
+    backend="loky",
+    initializer=lower_process_priority,
+)(
     delayed(process_pixel)(row, col, shm.name) for row, col in tqdm(all_pixel_indices, desc="Processing pixels")
 )
 
