@@ -8,9 +8,10 @@ from pathlib import Path
 import h5py
 import numpy as np
 import pandas as pd
-from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 from tqdm import tqdm
+
+from ndvi_analysis_utils import process_ndvi
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,12 +37,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def process_ndvi(series: np.ndarray) -> np.ndarray:
-    winter_ndvi = np.nanquantile(series, 0.025)
-    corrected = np.array(series, dtype=np.float32)
-    corrected[np.isnan(corrected)] = winter_ndvi
-    corrected[corrected < winter_ndvi] = winter_ndvi
-    return median_filter(corrected, size=3)
+def preprocess_ndvi(series: np.ndarray) -> np.ndarray:
+    _, _, filtered = process_ndvi(series, fill_missing_with_winter=True)
+    return filtered
 
 
 def gaussian_cyclic(
@@ -87,7 +85,7 @@ def fit_stack(
     for i in tqdm(range(nrows), desc="Rows"):
         for j in range(ncols):
             series = stack[:, i, j]
-            filtered = process_ndvi(series)
+            filtered = preprocess_ndvi(series)
             mask = ~np.isnan(filtered) & ~np.isinf(filtered)
             if np.sum(mask) < min_samples:
                 continue

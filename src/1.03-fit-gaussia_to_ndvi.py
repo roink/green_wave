@@ -5,70 +5,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 
+from ndvi_analysis_utils import (
+    ensure_script_figure_dir,
+    get_ndvi_timeseries,
+    process_ndvi,
+    _coordinate_tag,
+    _save_figure,
+)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
-FIGURE_ROOT = PROJECT_ROOT / "figure"
-SCRIPT_STEM = Path(__file__).stem
-SCRIPT_FIGURE_DIR = FIGURE_ROOT / SCRIPT_STEM
-SCRIPT_FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+
+SCRIPT_STEM, SCRIPT_FIGURE_DIR = ensure_script_figure_dir(__file__)
 
 
-def _slugify(text: str) -> str:
-    return (
-        text.replace("+", "p")
-        .replace("-", "m")
-        .replace(" ", "_")
-        .replace("/", "-")
-        .replace(".", "p")
+def save_figure(fig: plt.Figure, description: str) -> Path:
+    return _save_figure(
+        fig, description, script_stem=SCRIPT_STEM, figure_dir=SCRIPT_FIGURE_DIR
     )
-
-
-def _save_figure(fig: plt.Figure, description: str) -> Path:
-    filename = f"{SCRIPT_STEM}__{_slugify(description)}.png"
-    path = SCRIPT_FIGURE_DIR / filename
-    fig.savefig(path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved figure to {path}")
-    return path
-
-
-def _coordinate_tag(lat: float, lon: float) -> str:
-    return _slugify(f"lat{lat:.1f}_lon{lon:.1f}")
-
-
-def get_ndvi_timeseries(lat: float, lon: float) -> tuple[np.ndarray, np.ndarray]:
-    if not DATA_PATH.exists():
-        raise FileNotFoundError(f"NDVI stack not found at {DATA_PATH}")
-
-    row_idx = int((90 - lat) / 0.05)
-    col_idx = int((lon + 180) / 0.05)
-    print(f"Nearest pixel index: row={row_idx}, col={col_idx}")
-
-    with h5py.File(DATA_PATH, "r") as h5f:
-        metadata = h5f["metadata"][:]
-        ndvi_stack = h5f["ndvi_stack"][:, row_idx, col_idx]
-
-    dates = [
-        pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in metadata
-    ]
-    return np.array([date.day_of_year for date in dates]), ndvi_stack
-
-
-def process_ndvi(doy: np.ndarray, ndvi_timeseries: np.ndarray) -> tuple:
-    winter_ndvi = np.nanquantile(ndvi_timeseries, 0.025)
-    corrected = np.copy(ndvi_timeseries)
-    corrected[np.isnan(corrected)] = winter_ndvi
-    corrected[corrected < winter_ndvi] = winter_ndvi
-    filtered = median_filter(corrected, size=3)
-    return winter_ndvi, corrected, filtered
 
 
 def gaussian_cyclic(
@@ -81,8 +37,8 @@ def gaussian_cyclic(
 def calculate_gaussian_fit(
     lat: float, lon: float
 ) -> tuple[np.ndarray | None, float | None]:
-    doy, ndvi = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(doy, ndvi)
+    doy, ndvi = get_ndvi_timeseries(lat, lon, return_day_of_year=True)
+    _, _, filtered_ndvi = process_ndvi(ndvi, fill_missing_with_winter=True)
 
     mask = ~np.isnan(filtered_ndvi) & ~np.isinf(filtered_ndvi)
     x = doy[mask]
@@ -122,8 +78,8 @@ def calculate_gaussian_fit(
 def plot_gaussian_fit(
     lat: float, lon: float, popt: np.ndarray, r_squared: float | None
 ) -> None:
-    doy, ndvi = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(doy, ndvi)
+    doy, ndvi = get_ndvi_timeseries(lat, lon, return_day_of_year=True)
+    _, _, filtered_ndvi = process_ndvi(ndvi, fill_missing_with_winter=True)
 
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.scatter(doy, filtered_ndvi, color="grey", alpha=0.4, label="Filtered NDVI")
@@ -138,7 +94,7 @@ def plot_gaussian_fit(
     ax.set_title(title)
     ax.legend()
     ax.grid(True)
-    _save_figure(fig, f"{_coordinate_tag(lat, lon)}_gaussian_fit")
+    save_figure(fig, f"{_coordinate_tag(lat, lon)}_gaussian_fit")
 
 
 def main() -> None:

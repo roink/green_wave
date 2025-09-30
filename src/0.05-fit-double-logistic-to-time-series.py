@@ -5,15 +5,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
+from ndvi_analysis_utils import get_ndvi_timeseries, process_ndvi
+
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 PREPROCESS_DIR = FIGURE_ROOT / "preprocessing"
 FIT_SINGLE_DIR = FIGURE_ROOT / "fit-single-year"
@@ -24,48 +21,11 @@ for directory in (PREPROCESS_DIR, FIT_SINGLE_DIR, FIT_MULTI_DIR, FIT_TRANSFORM_D
     directory.mkdir(parents=True, exist_ok=True)
 
 
-def lat_lon_to_indices(lat: float, lon: float) -> tuple[int, int]:
-    row_idx = int((90 - lat) / 0.05)
-    col_idx = int((lon + 180) / 0.05)
-    print(f"Converted ({lat}°, {lon}°) -> row {row_idx}, column {col_idx}")
-    return row_idx, col_idx
-
-
-def get_ndvi_timeseries(
-    lat: float, lon: float
-) -> tuple[list[pd.Timestamp], np.ndarray]:
-    row_idx, col_idx = lat_lon_to_indices(lat, lon)
-
-    with h5py.File(HDF5_FILE, "r") as h5f:
-        metadata = h5f["metadata"][:]
-        ndvi_timeseries = h5f["ndvi_stack"][:, row_idx, col_idx]
-
-    dates = [
-        pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in metadata
-    ]
-    print(f"Loaded {len(dates)} observations for ({lat}°, {lon}°)")
-    return dates, ndvi_timeseries
-
-
-def process_ndvi(
-    dates: list[pd.Timestamp], ndvi_timeseries: np.ndarray
-) -> tuple[float, np.ndarray, np.ndarray]:
-    winter_ndvi = float(np.nanquantile(ndvi_timeseries, 0.025))
-    corrected_ndvi = np.copy(ndvi_timeseries)
-    corrected_ndvi[ndvi_timeseries < winter_ndvi] = winter_ndvi
-
-    for i, date in enumerate(dates):
-        doy = date.day_of_year
-        if np.isnan(corrected_ndvi[i]) and (doy >= 300 or doy <= 60):
-            corrected_ndvi[i] = winter_ndvi
-
-    filtered_ndvi = median_filter(corrected_ndvi, size=3)
-    return winter_ndvi, corrected_ndvi, filtered_ndvi
-
-
 def plot_ndvi(lat: float, lon: float) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
-    winter_ndvi, corrected_ndvi, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+    winter_ndvi, corrected_ndvi, filtered_ndvi = process_ndvi(
+        ndvi_timeseries, dates=dates, fill_missing_with_winter=True
+    )
 
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.plot(
@@ -131,7 +91,9 @@ def double_logistic(
 
 def fit_seasonal_curve(lat: float, lon: float, selected_year: int) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+    _, _, filtered_ndvi = process_ndvi(
+        ndvi_timeseries, dates=dates, fill_missing_with_winter=True
+    )
 
     mask = np.array([date.year == selected_year for date in dates])
     doy_values = np.array([date.day_of_year for date in np.array(dates)[mask]])
@@ -187,7 +149,9 @@ def fit_seasonal_curve_all_years(
     lat: float, lon: float, start_year: int = 2002, end_year: int = 2010
 ) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+    _, _, filtered_ndvi = process_ndvi(
+        ndvi_timeseries, dates=dates, fill_missing_with_winter=True
+    )
 
     mask = np.array([start_year <= date.year <= end_year for date in dates])
     doy_values = np.array([date.day_of_year for date in np.array(dates)[mask]])

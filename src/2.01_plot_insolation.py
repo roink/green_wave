@@ -10,32 +10,18 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
+from ndvi_analysis_utils import ensure_script_figure_dir, _save_figure
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSOLATION_PATH = PROJECT_ROOT / "data" / "insolation" / "orbit91"
-FIGURE_ROOT = PROJECT_ROOT / "figure"
-SCRIPT_STEM = Path(__file__).stem
-SCRIPT_FIGURE_DIR = FIGURE_ROOT / SCRIPT_STEM
-SCRIPT_FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+SCRIPT_STEM, SCRIPT_FIGURE_DIR = ensure_script_figure_dir(__file__)
 
 
-def _slugify(text: str) -> str:
-    return (
-        text.replace("+", "p")
-        .replace("-", "m")
-        .replace(" ", "_")
-        .replace("/", "-")
-        .replace(".", "p")
+def save_figure(fig: plt.Figure, description: str) -> Path:
+    return _save_figure(
+        fig, description, script_stem=SCRIPT_STEM, figure_dir=SCRIPT_FIGURE_DIR
     )
-
-
-def _save_figure(fig: plt.Figure, description: str) -> Path:
-    filename = f"{SCRIPT_STEM}__{_slugify(description)}.png"
-    path = SCRIPT_FIGURE_DIR / filename
-    fig.savefig(path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved figure to {path}")
-    return path
 
 
 def unwrap(p: np.ndarray) -> np.ndarray:
@@ -257,7 +243,7 @@ def main() -> None:
     ax.set_ylabel("Insolation (W/m²)")
     ax.set_title("June 21 Insolation at 65°N")
     ax.grid(True)
-    _save_figure(fig, "june21_65N_timeseries")
+    save_figure(fig, "june21_65N_timeseries")
 
     wave = june65.copy()
     wave[wave > 510] = 510
@@ -269,7 +255,7 @@ def main() -> None:
     ax.set_title("Clipped Insolation at 65°N (June 21)")
     ax.legend()
     ax.grid(True)
-    _save_figure(fig, "june21_65N_clipped")
+    save_figure(fig, "june21_65N_clipped")
 
     ecc_new = np.array([daily_insolation(i, 65, 172)["ecc"] for i in range(1, 5001)])
     obliq_new = np.array(
@@ -285,7 +271,7 @@ def main() -> None:
     ax.set_xlabel("kyr BP")
     ax.set_ylabel("Eccentricity")
     ax.grid(True)
-    _save_figure(fig, "orbital_eccentricity")
+    save_figure(fig, "orbital_eccentricity")
 
     fig, ax = plt.subplots()
     ax.plot(times, obliq_new, "b-")
@@ -293,7 +279,7 @@ def main() -> None:
     ax.set_xlabel("kyr BP")
     ax.set_ylabel("Degrees")
     ax.grid(True)
-    _save_figure(fig, "orbital_obliquity")
+    save_figure(fig, "orbital_obliquity")
 
     fig, ax = plt.subplots()
     ax.plot(times, perihel_new, "k-")
@@ -301,7 +287,7 @@ def main() -> None:
     ax.set_xlabel("kyr BP")
     ax.set_ylabel("Degrees")
     ax.grid(True)
-    _save_figure(fig, "orbital_solar_longitude")
+    save_figure(fig, "orbital_solar_longitude")
 
     threekBP65 = np.array([daily_insolation(0, 65, i)["Fsw"] for i in range(1, 365)])
     fifteenBP65 = np.array([daily_insolation(12, 65, i)["Fsw"] for i in range(1, 365)])
@@ -317,7 +303,7 @@ def main() -> None:
     ax.set_title("Daily Insolation at 65°N")
     ax.legend()
     ax.grid(True)
-    _save_figure(fig, "daily_insolation_65N_comparison")
+    save_figure(fig, "daily_insolation_65N_comparison")
 
 
 if __name__ == "__main__":
