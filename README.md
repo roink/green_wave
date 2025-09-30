@@ -1,40 +1,168 @@
-# Project Setup
+# Green Wave
 
-This repository provides analysis utilities for vegetation indices. Use the provided setup script to configure a local Python environment.
+This is a research codebase for reconstructing vegetation phenology
+and its links to human mobility. We combine satellite vegetation indices, orbital
+insolation forcing, and paleoclimate reconstructions to estimate the timing and
+propagation of “green waves” of primary productivity — and to evaluate whether
+these waves can help explain punctuated settlement and cultural pulses in
+prehistoric Europe.
 
-## Prerequisites
-- Python 3.12 available on your PATH
-- Access to a POSIX-compatible shell (macOS, Linux, or WSL)
+---
 
-## Initial Setup
+## Table of contents
+
+- [Project objectives](#project-objectives)
+- [Key research questions](#key-research-questions)
+- [Current analytical capabilities](#current-analytical-capabilities)
+- [Data expectations](#data-expectations)
+- [Data sources](#data-sources)
+- [Analysis workflow](#analysis-workflow)
+- [Repository layout](#repository-layout)
+- [Getting started (full setup)](#getting-started-full-setup)
+- [Research roadmap](#research-roadmap)
+
+---
+
+## Project objectives
+- **Quantify seasonal greening:** Derive Normalized Difference Vegetation Index
+  (NDVI) stacks from the MODIS MOD13C1 archive, filter quality flags, and fit
+  double-logistic curves to estimate the timing and magnitude of vegetation
+  green-up for modern reference periods.
+- **Model orbital forcing:** Generate daily and annual insolation time series
+  using Berger-style orbital parameters so that modern and paleo day-length and
+  irradiance signals can be coupled to vegetation dynamics.
+- **Bridge to paleo applications:** Calibrate empirical relationships between
+  insolation, bioclimatic drivers, vegetation cover, and LAI/NDVI under present
+  conditions, then apply them to mid-Holocene scenarios in order to estimate
+  the instantaneous rate of green-up (IRG) and its spatial gradients.
+- **Contextualise human settlement:** Compare reconstructed green-wave
+  propagation with archaeological evidence for punctuated occupation pulses to
+  test whether prey-following strategies can explain observed cultural rhythms.
+
+## Key research questions
+
+- How do green-up fronts propagate across Europe under modern vs. paleo orbital
+  configurations?
+- Can models calibrated on NDVI/LAI + bioclimate + vegetation cover transfer to
+  mid-Holocene driver fields?
+- Do predicted green-wave gradients align with the punctuated settlement
+  patterns observed for the Upper Paleolithic (e.g., East European Plain,
+  ~45–15 ka)?
+
+## Current analytical capabilities
+- **MODIS NDVI exploration** – Inspect the structure and metadata of MOD13C1 HDF
+  products, visualise global scenes, and assess pixel reliability layers.
+- **Time-series curation** – Assemble multi-year NDVI stacks, harmonise winter
+  minima, and apply median filtering prior to curve fitting.
+- **Double-logistic phenology fits** – Fit spring and autumn transition phases
+  for every European grid cell, evaluate goodness of fit (R², covariance
+  diagnostics), and persist parameter cubes for downstream modelling.
+- **Insolation diagnostics** – Translate orbital solutions into daily irradiance
+  for arbitrary latitudes, including specialised alignments (e.g., March 21 and
+  December 21 calendars) used when comparing glacial/interglacial insolation.
+
+The `src/` directory contains the individual notebooks/scripts that implement
+these steps; they are numbered roughly in workflow order from data exploration
+(`0.xx`) to model calibration (`1.xx`) and forcing analysis (`2.xx`).
+
+## Data expectations
+The processing scripts assume access to a project data directory containing:
+- MODIS MOD13C1 NDVI composites (`.hdf`) with accompanying pixel reliability
+  layers.
+- Pre-filtered NDVI stacks stored as compressed NumPy arrays
+  (`ndvi_stack_filtered.npz`).
+- Orbital parameter tables from Berger (1991) style solutions (e.g., the
+  `orbit91` dataset).
+
+Paths inside the scripts currently point to institutional storage (e.g.,
+`/work/pschluet/green_wave/data/`). Adapt these to your local environment when
+running the workflows.
+
+## Data sources
+
+- [*MODIS/Terra MOD13C1 (0.05° 16-day NDVI/EVI, VI QA, reflectance, angular info)*](https://www.earthdata.nasa.gov/data/catalog/lpcloud-mod13c1-061).
+- [*Orbital forcing (daily insolation from Berger 1978; updated values Berger & Loutre 1991).*](https://ui.adsabs.harvard.edu/abs/1978JAtS...35.2362B/abstract)
+- [*Paleoclimate drivers (pastclim bioclim variables / reconstructions).*](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.06481)
+
+## Analysis workflow
+
+1. **Data acquisition & quality control** – Retrieve MOD13C1 scenes, decode
+   metadata, inspect VI QA flags, and standardise projections.
+2. **Time-series stacking & smoothing** – Build multi-year NDVI/LAI cubes,
+   apply winter baselines, and filter noise/outliers.
+3. **Phenology extraction** – Fit seasonal curves per grid cell, compute IRG
+   timing and peak magnitude, and validate the fits.
+4. **Orbital forcing comparisons** – Generate daily insolation for modern, LGM,
+   and mid-Holocene epochs and analyse lags against vegetation metrics.
+5. **Model calibration** – Regress NDVI/LAI on insolation, bioclimate, and
+   vegetation cover; compare variants with/without fractional cover predictors.
+6. **Coupled HEP simulations** – Feed reconstructed green waves into human–prey
+   models to test dispersal corridors and cultural pulsation hypotheses.
+
+## Repository layout
+```
+README.md                 High-level project documentation (this file)
+setup.sh                  Helper for creating a Python 3.12 virtual environment
+requirements.txt          Python dependencies for the analysis environment
+src/                      Processing and modelling scripts (numbered workflow)
+documentation/            Slides describing the scientific motivation
+```
+
+## Getting started (full setup)
+Follow these steps to reproduce the Python environment used for development.
+
+### Prerequisites
+- Python 3.12 available on your `PATH`.
+- Access to a POSIX-compatible shell (macOS, Linux, or WSL).
+
+### Initial setup
 1. Clone the repository.
 2. Make the setup script executable (first time only):
    ```bash
    chmod +x setup.sh
    ```
-3. Run the setup script to create the `venv` virtual environment and install dependencies:
+3. Run the setup script to create the `venv` virtual environment and install
+   dependencies:
    ```bash
    ./setup.sh
    ```
 
 The script will:
-- Verify that `python3.12` is available
-- Create a virtual environment named `venv`
-- Upgrade `pip` inside the environment
-- Install packages listed in `requirements.txt`
+- Verify that `python3.12` is available.
+- Create a virtual environment named `venv`.
+- Upgrade `pip` inside the environment.
+- Install packages listed in `requirements.txt`.
 
-## Activating the Environment
+### Activating the environment
 After setup, activate the environment whenever you work on the project:
 ```bash
 source venv/bin/activate
 ```
-
 When finished, deactivate it with:
 ```bash
 deactivate
 ```
 
-## Updating Dependencies
+### Updating dependencies
 If you add or update packages:
 1. Modify `requirements.txt` accordingly.
 2. Re-run `./setup.sh` to install the new dependencies.
+
+## Research roadmap
+The next phases of the project build on the existing tooling:
+1. **Data acquisition and benchmarking** – Extend the modern NDVI analysis to
+   cover representative biomes (southern, central, and northern Europe) and
+   cross-compare with LAI products.
+2. **Phenology/insolation coupling** – Overlay NDVI-derived IRG timing with
+   Berger-modelled insolation curves for modern, Last Glacial Maximum, and
+   mid-Holocene climates.
+3. **Model calibration** – Estimate statistical mappings from insolation,
+   bioclimatic variables, and vegetation cover to NDVI/LAI using variants that
+   optionally predict vegetation fractional cover before inferring LAI.
+4. **Paleo reconstruction** – Apply the calibrated model to paleoclimate driver
+   fields, compute IRG gradients, and map the propagation of green-wave fronts
+   across Europe.
+5. **Human–prey dynamics** – Integrate reconstructed green waves into the
+   Human Existence Potential (HEP) framework to simulate coupled human and prey
+   dispersal, compare against archaeological site chronologies, and assess
+   cultural pulsation hypotheses.
