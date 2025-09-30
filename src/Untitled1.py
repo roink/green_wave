@@ -1,247 +1,206 @@
-#!/usr/bin/env python
-# coding: utf-8
+"""Compare alternative seasonal NDVI curve fits for a single pixel.
 
-# In[14]:
+The notebook version of this file relied on inline plotting.  This script fits
+multiple analytic curves, prints the fitted parameters, and saves the resulting
+figures to ``figure/Untitled1``.
+"""
+from __future__ import annotations
 
+from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.optimize import curve_fit
 
+SCRIPT_NAME = Path(__file__).stem
+FIGURE_ROOT = Path("figure") / SCRIPT_NAME
+FIGURE_ROOT.mkdir(parents=True, exist_ok=True)
 
-# In[15]:
+DOY_VALUES = np.array(
+    [
+        1,
+        17,
+        33,
+        49,
+        65,
+        81,
+        97,
+        113,
+        129,
+        145,
+        161,
+        177,
+        193,
+        209,
+        225,
+        241,
+        257,
+        273,
+        289,
+        305,
+        321,
+        337,
+        353,
+    ],
+    dtype=float,
+)
+
+NDVI_VALUES = np.array(
+    [
+        5809,
+        5809,
+        2657,
+        2657,
+        2657,
+        2780,
+        6257,
+        6346,
+        6759,
+        7396,
+        8015,
+        8058,
+        8015,
+        8058,
+        7991,
+        8019,
+        7991,
+        7410,
+        7286,
+        6416,
+        5859,
+        5859,
+        1407,
+    ],
+    dtype=float,
+)
 
 
-doy_values = [  1,  17,  33,  49,  65,  81,  97, 113, 129 ,145 ,161, 177 ,193, 209, 225, 241 ,257 ,273, 289 ,305 ,321, 337 ,353]
-ndvi_values = [5809., 5809., 2657.,2657.,2657.,2780.,6257.,6346.,6759.,7396.,8015.,8058., 8015.,8058.,7991.,8019.,7991.,7410.,7286.,6416.,5859.,5859.,1407.]
-
-
-# In[58]:
-
-
-def double_logistic(t, xmidSNDVI, scalSNDVI, xmidANDVI, scalANDVI, bias, scale):
-    """
-    Double-logistic function for fitting NDVI profiles.
-    """
-    spring = 1 / (1 + np.exp((xmidSNDVI - t) / scalSNDVI))
-    autumn = 1 / (1 + np.exp((xmidANDVI - t) / scalANDVI))
+def double_logistic(
+    t: np.ndarray,
+    xmid_s: float,
+    scal_s: float,
+    xmid_a: float,
+    scal_a: float,
+    bias: float,
+    scale: float,
+) -> np.ndarray:
+    spring = 1.0 / (1.0 + np.exp((xmid_s - t) / scal_s))
+    autumn = 1.0 / (1.0 + np.exp((xmid_a - t) / scal_a))
     return bias + scale * (spring - autumn)
 
 
-# In[59]:
+def tanh_sine(t: np.ndarray, phase: float, bias: float, scale: float, sharpness: float) -> np.ndarray:
+    angle = (t - phase) * 2.0 * np.pi / 365.0
+    numerator = np.tanh(np.sin(angle) * sharpness)
+    denominator = np.tanh(sharpness) if sharpness != 0 else 1.0
+    return bias + scale * numerator / denominator
 
 
-def double_logistic(t, xmidSNDVI, bias, scale):
-    
-    return bias + scale * np.sin((t-xmidSNDVI)/182.5)
-    
+def sigmoid_sine(x: np.ndarray, amplitude: float, steepness: float) -> np.ndarray:
+    numerator = 2.0 / (1.0 + np.exp(-steepness * np.sin(x))) - 1.0
+    return amplitude * numerator
 
 
-# In[ ]:
+def plot_fit(
+    doy: np.ndarray,
+    ndvi: np.ndarray,
+    x_dense: np.ndarray,
+    y_dense: np.ndarray,
+    title: str,
+    output_name: str,
+) -> Path:
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.scatter(doy, ndvi, color="black", label="Observed NDVI", zorder=2)
+    ax.plot(x_dense, y_dense, color="red", linestyle="--", label="Fitted curve", zorder=1)
+    ax.set_xlabel("Day of Year")
+    ax.set_ylabel("NDVI")
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, linestyle=":", linewidth=0.5)
+    output_path = FIGURE_ROOT / output_name
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
-def tanh_sin(t, xmidSNDVI, bias, scale, k):
-    
-    return bias + scale * np.tanh(np.sin((t-xmidSNDVI)/365) *k) / np.tanh(k)
-    
+if __name__ == "__main__":
+    doy_dense = np.linspace(1, 365, 365)
 
+    # Double logistic fit -------------------------------------------------
+    logistic_guess = [120, 20, 270, 20, 1000, 7000]
+    logistic_bounds = ([0, 1, 180, 1, -2000, 0], [365, 200, 365, 200, 12000, 20000])
+    logistic_params, _ = curve_fit(
+        double_logistic,
+        DOY_VALUES,
+        NDVI_VALUES,
+        p0=logistic_guess,
+        bounds=logistic_bounds,
+        maxfev=20000,
+    )
+    print("Double logistic parameters:")
+    for name, value in zip(
+        ["xmidS", "scalS", "xmidA", "scalA", "bias", "scale"], logistic_params
+    ):
+        print(f"  {name:>6}: {value:8.3f}")
+    logistic_curve = double_logistic(doy_dense, *logistic_params)
+    logistic_path = plot_fit(
+        DOY_VALUES,
+        NDVI_VALUES,
+        doy_dense,
+        logistic_curve,
+        "Double Logistic Fit to NDVI",
+        "double_logistic_fit.png",
+    )
+    print(f"Saved double logistic figure -> {logistic_path}")
 
-# In[60]:
+    # Tanh-sine fit -------------------------------------------------------
+    tanh_guess = [120, 3000, 4000, 5]
+    tanh_bounds = ([0, 0, 0, 0.1], [365, 8000, 20000, 50])
+    tanh_params, _ = curve_fit(
+        tanh_sine,
+        DOY_VALUES,
+        NDVI_VALUES,
+        p0=tanh_guess,
+        bounds=tanh_bounds,
+        maxfev=20000,
+    )
+    print("Tanh-sine parameters:")
+    for name, value in zip(["phase", "bias", "scale", "sharpness"], tanh_params):
+        print(f"  {name:>9}: {value:8.3f}")
+    tanh_curve = tanh_sine(doy_dense, *tanh_params)
+    tanh_path = plot_fit(
+        DOY_VALUES,
+        NDVI_VALUES,
+        doy_dense,
+        tanh_curve,
+        "Tanh-Sine Fit to NDVI",
+        "tanh_sine_fit.png",
+    )
+    print(f"Saved tanh-sine figure -> {tanh_path}")
 
-
-# Define the time range (DOY 0-365)
-t_values = np.linspace(0, 365, 366)
-
-# Define initial guesses
-bias_guess = 1000  # Example bias
-scale_guess = 5000  # Example scale
-initial_guess = [120, 20, 270 ]  # Northern hemisphere
-
-
-# In[61]:
-
-
-# Fit the double-logistic function
-params, _ = curve_fit(double_logistic, doy_values, ndvi_values, p0=initial_guess)
-
-# Generate fitted curve
-doy_full = np.arange(1, 366)  # Full year for smooth plotting
-ndvi_fitted = double_logistic(doy_full, *params)
-
-# Plot fitted curve
-plt.figure(figsize=(10, 5))
-plt.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
-plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
-
-
-plt.xlabel("Day of Year")
-plt.ylabel("NDVI")
-plt.title(f"NDVI Seasonal Curve Fitting" )
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# In[79]:
-
-
-def tanh_sin(t, xmidSNDVI, bias, scale, k):
-    
-    return bias + scale * np.tanh(np.sin((t-xmidSNDVI)*2*np.pi/365) *k*2*np.pi/365) / np.tanh(k*2*np.pi/365)
-    
-
-
-# In[82]:
-
-
-# Define initial guesses
-bias_guess = 1000  # Example bias
-scale_guess = 5000  # Example scale
-initial_guess = [120, 1000, 5000,8 ]  # Northern hemisphere
-
-
-# In[83]:
-
-
-# Fit the double-logistic function
-params, _ = curve_fit(tanh_sin, doy_values, ndvi_values, p0=initial_guess)
-
-# Generate fitted curve
-doy_full = np.arange(1, 366)  # Full year for smooth plotting
-ndvi_fitted = tanh_sin(doy_full, *params)
-
-# Plot fitted curve
-plt.figure(figsize=(10, 5))
-plt.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
-plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
-
-
-plt.xlabel("Day of Year")
-plt.ylabel("NDVI")
-plt.title(f"NDVI Seasonal Curve Fitting" )
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# In[88]:
-
-
-import numpy as np
-from scipy.optimize import curve_fit
-
-def sigmoid_sine(x, a, k):
-    """
-    Sigmoid-sine composition with sharpened transitions.
-    
-    Args:
-        x    : Input array (phase values in radians)
-        a    : Amplitude parameter
-        k    : Steepness parameter (higher = sharper transitions)
-    
-    Returns:
-        y    : Transformed waveform
-    """
-    numerator = 2 / (1 + np.exp(-k  * np.sin(x))) - 1  # Logistic-sine term
-    return a * numerator 
-
-# Example usage with synthetic data
-if True:
-    # Generate noisy test data
-    x_data = np.linspace(0, 4*np.pi, 200)
+    # Sigmoid-sine demonstration -----------------------------------------
+    rng = np.random.default_rng(42)
+    x_demo = np.linspace(0, 4 * np.pi, 200)
     true_a = 2.5
     true_k = 4.0
-    y_data = sigmoid_sine(x_data, true_a, true_k) + 0.1 * np.random.normal(size=len(x_data))
+    y_demo = sigmoid_sine(x_demo, true_a, true_k) + 0.1 * rng.normal(size=len(x_demo))
 
-    # Perform curve fitting
-    params_guess = [1.0, 1.0]  # Initial guess for [a, k]
-    popt, pcov = curve_fit(sigmoid_sine, x_data, y_data, p0=params_guess)
+    demo_guess = [1.0, 1.0]
+    demo_params, _ = curve_fit(sigmoid_sine, x_demo, y_demo, p0=demo_guess, maxfev=20000)
+    print("Sigmoid-sine recovered parameters:")
+    print(f"  amplitude: true={true_a:.2f}, fitted={demo_params[0]:.3f}")
+    print(f"  steepness: true={true_k:.2f}, fitted={demo_params[1]:.3f}")
 
-    # Extract fitted parameters
-    a_fit, k_fit = popt
-    print(f"True parameters: a={true_a}, k={true_k}")
-    print(f"Fitted parameters: a={a_fit:.3f}, k={k_fit:.3f}")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(x_demo, y_demo, "b.", label="Synthetic data")
+    ax.plot(x_demo, sigmoid_sine(x_demo, *demo_params), "r-", label="Fit")
+    ax.set_xlabel("Phase (radians)")
+    ax.set_ylabel("Amplitude")
+    ax.legend()
+    ax.grid(True, linestyle=":", linewidth=0.5)
+    sigmoid_path = FIGURE_ROOT / "sigmoid_sine_demo.png"
+    fig.savefig(sigmoid_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved sigmoid-sine demonstration figure -> {sigmoid_path}")
 
-
-# In[89]:
-
-
-plt.figure(figsize=(10, 4))
-plt.plot(x_data, y_data, 'b.', label='Noisy data')
-plt.plot(x_data, sigmoid_sine(x_data, *popt), 'r-', label='Fit')
-plt.xlabel('Phase (radians)')
-plt.ylabel('Amplitude')
-plt.legend()
-plt.show()
-
-
-# In[143]:
-
-
-def double_sigmoid_sine(t, xmidSNDVI, scalSNDVI, bias, scale):
-    """
-    Double-logistic function for fitting NDVI profiles.
-    """
-    spring = 1 / (1 + np.exp(-np.sin((t-xmidSNDVI)*2*np.pi/365) / scalSNDVI))
-    return bias + scale * (spring )
-
-
-# In[144]:
-
-
-# Define initial guesses
-bias_guess = 1000  # Example bias
-scale_guess = 5000  # Example scale
-initial_guess = [320,1,4500, 20000 ]  # Northern hemisphere
-
-
-# In[145]:
-
-
-# Generate fitted curve
-doy_full = np.arange(1, 366)  # Full year for smooth plotting
-ndvi_fitted = double_sigmoid_sine(doy_full, *initial_guess)
-
-# Plot fitted curve
-plt.figure(figsize=(10, 5))
-plt.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
-plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
-
-
-plt.xlabel("Day of Year")
-plt.ylabel("NDVI")
-plt.title(f"NDVI Seasonal Curve Fitting" )
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# In[146]:
-
-
-# Fit the double-logistic function
-params, _ = curve_fit(double_sigmoid_sine, doy_values, ndvi_values, p0=initial_guess, maxfev=20000)
-
-# Generate fitted curve
-doy_full = np.arange(-700, 700)  # Full year for smooth plotting
-ndvi_fitted = double_sigmoid_sine(doy_full, *params)
-
-# Plot fitted curve
-plt.figure(figsize=(10, 5))
-plt.scatter(doy_values, ndvi_values, color="black", label="Observed NDVI")
-plt.plot(doy_full, ndvi_fitted, color="red", linestyle="--", label="Fitted Double-Logistic Curve")
-
-
-plt.xlabel("Day of Year")
-plt.ylabel("NDVI")
-plt.title(f"NDVI Seasonal Curve Fitting" )
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# In[ ]:
-
-
-
-
+    print("All figures generated successfully.")

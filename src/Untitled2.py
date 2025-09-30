@@ -1,138 +1,102 @@
-#!/usr/bin/env python
-# coding: utf-8
+"""Visualise warped sine constructions without relying on notebook widgets."""
+from __future__ import annotations
 
-# In[2]:
+from itertools import product
+from pathlib import Path
 
-
-import numpy as np
 import matplotlib.pyplot as plt
-
-# Function to warp time
-def g(x, T, p):
-    return x**p / (x**p + (T - x)**p)
-
-# Generate x values
-T = 2 * np.pi  # Full period
-x = np.linspace(-T, 2*T, 1000)
-
-# Different values of p
-p_values = [0.5, 1, 2, 5]
-
-# Plot the warped sine function
-plt.figure(figsize=(8, 6))
-
-for p in p_values:
-    warped_x = g(x, T, p) * T  # Transform x using g(x)
-    y = np.sin(2 * np.pi * warped_x / T)  # Compute sine
-    plt.plot(x, y, label=f'p={p}')
-
-plt.xlabel('x')
-plt.ylabel('sin(warped x)')
-plt.title('Warped Sine Function with Different p Values')
-plt.legend()
-plt.grid()
-plt.show()
-
-
-# In[20]:
-
-
 import numpy as np
-import matplotlib.pyplot as plt
+
+SCRIPT_NAME = Path(__file__).stem
+FIGURE_ROOT = Path("figure") / SCRIPT_NAME
+FIGURE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
-# Generate x values
-T = 1  # Full period
-x = np.linspace(0, T, 1000)
-
-# Different values of p
-p_values = [0.5, 1]
-
-# Plot the warped sine function
-plt.figure(figsize=(8, 6))
-
-for p in p_values:
-    warped_x = g(x, T, p) * T  # Transform x using g(x)
-    y = np.sin(2 * np.pi * x + p * np.sin(2*np.pi *(x-t2)))  # Compute sine
-    plt.plot(x, y, label=f'p={p}')
-
-plt.xlabel('x')
-plt.ylabel('sin(warped x)')
-plt.title('Warped Sine Function with Different p Values')
-plt.legend()
-plt.grid()
-plt.show()
+def g(x: np.ndarray, period: float, power: float) -> np.ndarray:
+    clipped = np.clip(x, 0.0, period)
+    return clipped**power / (clipped**power + (period - clipped) ** power)
 
 
-# In[23]:
+def plot_power_warped_sine() -> Path:
+    period = 2.0 * np.pi
+    x = np.linspace(-period, 2 * period, 1000)
+    p_values = [0.5, 1, 2, 5]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for power in p_values:
+        warped_x = g(x, period, power) * period
+        y = np.sin(2 * np.pi * warped_x / period)
+        ax.plot(x, y, label=f"p={power}")
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("sin(warped x)")
+    ax.set_title("Warped sine for different power exponents")
+    ax.legend()
+    ax.grid(True, linestyle=":", linewidth=0.5)
+    output_path = FIGURE_ROOT / "warped_sine_power.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from ipywidgets import interact, FloatSlider
+def plot_phase_modulation() -> Path:
+    period = 1.0
+    x = np.linspace(0, period, 1000)
+    configs = [(0.5, 0.0), (0.5, 0.25), (1.0, 0.0), (1.0, 0.25)]
 
-def warped_sine_plot(p=1.0, t2=0.0):
-    # Generate x values
-    T = 1  # Full period
-    x = np.linspace(0, T, 1000)
-    
-    # Compute warped sine function
-    y = np.sin(2 * np.pi * x + p * np.sin(2 * np.pi * (x - t2)))
-    
-    # Plot
-    plt.figure(figsize=(8, 6))
-    plt.plot(x, y, label=f'p={p}, t2={t2}')
-    plt.xlabel('x')
-    plt.ylabel('sin(warped x)')
-    plt.title('Warped Sine Function with Interactive Parameters')
-    plt.legend()
-    plt.grid()
-    plt.show()
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), sharex=True, sharey=True)
+    for ax, (power, phase_shift) in zip(axes.flat, configs):
+        warped = g(x, period, power) * period
+        y = np.sin(2 * np.pi * x + power * np.sin(2 * np.pi * (x - phase_shift)))
+        ax.plot(x, y)
+        ax.set_title(f"p={power}, phase shift={phase_shift}")
+        ax.grid(True, linestyle=":", linewidth=0.5)
 
-# Create interactive sliders
-interact(warped_sine_plot, 
-         p=FloatSlider(min=0., max=1.0, step=0.01, value=0.5, description='p'),
-         t2=FloatSlider(min=0, max=1.0, step=0.01, value=0.0, description='t2'))
+    fig.suptitle("Phase-modulated sine waves")
+    fig.text(0.5, 0.04, "x", ha="center")
+    fig.text(0.04, 0.5, "sin(warped x)", va="center", rotation="vertical")
+    output_path = FIGURE_ROOT / "phase_modulation.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
-# In[31]:
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-x))
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from ipywidgets import interact, FloatSlider
+def plot_sigmoid_modulation() -> Path:
+    period = 1.0
+    x = np.linspace(0, period, 1000)
+    p_values = [0.25, 0.5, 0.75]
+    offsets = [-1.0, 0.0, 1.0]
 
-def sigmoid(x):
-    return 1/(1+np.exp(x))
+    fig, axes = plt.subplots(len(p_values), len(offsets), figsize=(12, 8), sharex=True, sharey=True)
+    for (i, power), (j, offset) in product(enumerate(p_values), enumerate(offsets)):
+        ax = axes[i, j]
+        warped = g(x, period, power) * period
+        y = sigmoid(np.sin(2 * np.pi * x + power * np.sin(2 * np.pi * (x - 0.25))) * 5 + offset)
+        ax.plot(x, y)
+        ax.set_title(f"p={power}, offset={offset}")
+        ax.grid(True, linestyle=":", linewidth=0.5)
 
-def warped_sine_plot(p=1.0, t2=0.0, a=1.0,b=0.0):
-    # Generate x values
-    T = 1  # Full period
-    x = np.linspace(0, T, 1000)
-    
-    # Compute warped sine function
-    y = sigmoid(a*np.sin(2 * np.pi * x + p * np.sin(2 * np.pi * (x - t2)))+b)
-    
-    # Plot
-    plt.figure(figsize=(8, 6))
-    plt.plot(x, y, label=f'p={p}, t2={t2}')
-    plt.xlabel('x')
-    plt.ylabel('sin(warped x)')
-    plt.title('Warped Sine Function with Interactive Parameters')
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-# Create interactive sliders
-interact(warped_sine_plot, 
-         p=FloatSlider(min=0., max=1.0, step=0.01, value=0.5, description='p'),
-         t2=FloatSlider(min=0, max=1.0, step=0.01, value=0.0, description='t2'),
-         a=FloatSlider(min=0, max=100.0, step=0.1, value=1.0, description='a'),
-         b=FloatSlider(min=-100, max=100.0, step=0.1, value=0.0, description='b'))
+    fig.suptitle("Sigmoid-transformed warped sine waves")
+    fig.text(0.5, 0.04, "x", ha="center")
+    fig.text(0.04, 0.5, "sigmoid(...)", va="center", rotation="vertical")
+    output_path = FIGURE_ROOT / "sigmoid_modulation.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
-# In[ ]:
+if __name__ == "__main__":
+    power_path = plot_power_warped_sine()
+    print(f"Saved warped sine power sweep -> {power_path}")
 
+    phase_path = plot_phase_modulation()
+    print(f"Saved phase modulation grid -> {phase_path}")
 
+    sigmoid_path = plot_sigmoid_modulation()
+    print(f"Saved sigmoid modulation grid -> {sigmoid_path}")
 
-
+    print("All warped sine figures generated successfully.")
