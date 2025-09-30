@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 FIGURE_DIR = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 

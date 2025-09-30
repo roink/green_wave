@@ -16,8 +16,11 @@ from scipy.optimize import curve_fit
 # In[2]:
 
 
+from pathlib import Path
+
 # Path to HDF5 file
-hdf5_file = "/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+hdf5_file = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 
 
 # In[3]:

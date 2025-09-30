@@ -13,8 +13,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5")
-FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
+FIGURE_ROOT = PROJECT_ROOT / "figure" / Path(__file__).stem
 GLOBAL_FRAMES_DIR = FIGURE_ROOT / "frames" / "global"
 EUROPE_FRAMES_DIR = FIGURE_ROOT / "frames" / "europe"
 VIDEO_DIR = FIGURE_ROOT / "video"

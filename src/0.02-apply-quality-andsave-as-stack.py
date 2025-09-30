@@ -12,10 +12,10 @@ import numpy as np
 from pyhdf.SD import SD, SDC
 from tqdm import tqdm
 
-DATA_PATH = Path("/data/hescor/pschluet/green_wave/data/NDVI")
-OUTPUT_PATH = Path(
-    "/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = PROJECT_ROOT / "data" / "raw" / "NDVI"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
+NEW_CHUNK_SIZE = (1, 256, 256)
 
 
 def discover_files() -> list[Path]:
@@ -53,12 +53,18 @@ def build_stack(hdf_files: list[Path], ndvi_shape: tuple[int, int]) -> None:
     num_timesteps = len(hdf_files)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    chunk_layout = (
+        NEW_CHUNK_SIZE[0],
+        min(NEW_CHUNK_SIZE[1], ndvi_shape[0]),
+        min(NEW_CHUNK_SIZE[2], ndvi_shape[1]),
+    )
+
     with h5py.File(OUTPUT_PATH, "w") as h5f:
         dset_ndvi = h5f.create_dataset(
             "ndvi_stack",
             shape=(num_timesteps, *ndvi_shape),
             dtype=np.float32,
-            chunks=(1, ndvi_shape[0], ndvi_shape[1]),
+            chunks=chunk_layout,
             compression="lzf",
         )
 
@@ -92,9 +98,9 @@ def build_stack(hdf_files: list[Path], ndvi_shape: tuple[int, int]) -> None:
             mask = (ndvi_reliability < 0) | (ndvi_reliability > 2)
             ndvi_data[mask] = np.nan
 
-            dset_ndvi[i, :, :] = ndvi_data
+            dset_ndvi[i, :, :] = ndvi_data.astype(np.float32)
 
-    print(f"Filtered NDVI stack saved at {OUTPUT_PATH}")
+    print(f"Optimized NDVI stack saved at {OUTPUT_PATH}")
 
 
 def main() -> None:
