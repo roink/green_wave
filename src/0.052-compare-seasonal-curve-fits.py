@@ -2,7 +2,7 @@
 
 The notebook version of this file relied on inline plotting.  This script fits
 multiple analytic curves, prints the fitted parameters, and saves the resulting
-figures to ``figure/Untitled1``.
+figures to ``figure/0.052-compare-seasonal-curve-fits``.
 """
 from __future__ import annotations
 
