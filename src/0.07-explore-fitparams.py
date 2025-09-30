@@ -8,11 +8,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-FILE_PATH = Path("/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz")
-CLEANED_OUTPUT_PATH = Path(
-    "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz"
-)
-FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = PROJECT_ROOT / "data" / "intermediate"
+FILE_PATH = DATA_ROOT / "ndvi_fit_params.npz"
+CLEANED_OUTPUT_PATH = DATA_ROOT / "ndvi_fit_params_cleaned.npz"
+FIGURE_ROOT = PROJECT_ROOT / "figure" / Path(__file__).stem
 MAP_DIR = FIGURE_ROOT / "maps"
 PROFILE_DIR = FIGURE_ROOT / "profiles"
 
