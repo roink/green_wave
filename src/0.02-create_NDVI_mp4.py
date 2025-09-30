@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from process_priority import lower_process_priority
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 FIGURE_ROOT = PROJECT_ROOT / "figure" / Path(__file__).stem
@@ -96,15 +98,17 @@ def create_video(frames_dir: Path, output_path: Path, fps: int = 10) -> None:
     video_writer.release()
     cv2.destroyAllWindows()
     print(f"Video saved at {output_path}")
-
-
 def generate_frames(num_timesteps: int) -> None:
     """Generate frames for all available time steps using multiprocessing."""
 
     multiprocessing.set_start_method("fork", force=True)
     worker_count = min(multiprocessing.cpu_count(), num_timesteps)
 
-    with multiprocessing.Pool(processes=worker_count, maxtasksperchild=1) as pool:
+    with multiprocessing.Pool(
+        processes=worker_count,
+        maxtasksperchild=1,
+        initializer=lower_process_priority,
+    ) as pool:
         for _ in tqdm(
             pool.imap_unordered(process_timestep, range(num_timesteps)),
             total=num_timesteps,
