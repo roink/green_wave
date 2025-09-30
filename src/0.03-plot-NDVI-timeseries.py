@@ -25,7 +25,9 @@ def lat_lon_to_indices(lat: float, lon: float) -> tuple[int, int]:
     return row_idx, col_idx
 
 
-def get_ndvi_timeseries(lat: float, lon: float) -> tuple[list[pd.Timestamp], np.ndarray]:
+def get_ndvi_timeseries(
+    lat: float, lon: float
+) -> tuple[list[pd.Timestamp], np.ndarray]:
     """Extract NDVI values and corresponding timestamps for a location."""
 
     row_idx, col_idx = lat_lon_to_indices(lat, lon)
@@ -37,7 +39,9 @@ def get_ndvi_timeseries(lat: float, lon: float) -> tuple[list[pd.Timestamp], np.
     valid_mask = ~np.isnan(ndvi_timeseries)
     ndvi_timeseries = ndvi_timeseries[valid_mask]
     valid_dates = metadata[valid_mask]
-    dates = [pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in valid_dates]
+    dates = [
+        pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in valid_dates
+    ]
 
     print(f"Loaded {len(dates)} observations for ({lat}°, {lon}°)")
     return dates, ndvi_timeseries
@@ -49,7 +53,9 @@ def plot_ndvi(lat: float, lon: float) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(dates, ndvi_timeseries, marker="o", linestyle="-", color="green", label="NDVI")
+    ax.plot(
+        dates, ndvi_timeseries, marker="o", linestyle="-", color="green", label="NDVI"
+    )
     ax.set_xlabel("Date")
     ax.set_ylabel("NDVI")
     ax.set_title(f"NDVI Time Series at ({lat}°N, {lon}°E)")

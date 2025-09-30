@@ -1,217 +1,225 @@
-#!/usr/bin/env python
-# coding: utf-8
+#!/usr/bin/env python3
+"""Fit a double logistic model for every pixel in the European subset."""
 
-# In[1]:
+from __future__ import annotations
 
+import warnings
+from multiprocessing import shared_memory
+from pathlib import Path
+from typing import Iterable, Tuple
 
 import numpy as np
-import pandas as pd
-from scipy.optimize import curve_fit, OptimizeWarning
-from scipy.ndimage import median_filter
-from tqdm.notebook import tqdm
 from joblib import Parallel, delayed
-from multiprocessing import shared_memory
+from scipy.ndimage import median_filter
+from scipy.optimize import OptimizeWarning, curve_fit
 from scipy.stats import linregress
-import warnings
+from tqdm.auto import tqdm
 
 from process_priority import lower_process_priority
 
+# ---------------------------------------------------------------------------
+# Paths and constants
+# ---------------------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+NDVI_STACK_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_filtered.npz"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_fit_params.npz"
 
-# In[2]:
+ROW_START, ROW_END = 320, 1198
+COL_START, COL_END = 3335, 4553
+NUM_PARAMS = 6
+NUM_METRICS = 2  # R^2 and covariance quality
+RESULT_LENGTH = NUM_PARAMS + NUM_METRICS
 
-
-# Path to save output
-output_path = "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz"
-
-# Define bounding box for Europe (pixel indices)
-row_start, row_end = 320, 1198
-col_start, col_end = 3335, 4553
-
-# Initialize array for fit parameters
-num_rows = row_end - row_start
-num_cols = col_end - col_start
-num_params = 6  # Number of fitted parameters
-ndvi_fit_params = np.full((num_rows, num_cols, 6), np.nan, dtype=np.float32)  # 6 fit parameters
-
-
-# In[3]:
+# Globals populated in ``main`` so that worker processes can access them.
+METADATA: np.ndarray | None = None
+NDVI_STACK_SHAPE: Tuple[int, ...] | None = None
+NDVI_STACK_DTYPE: np.dtype | None = None
 
 
-def double_logistic(t, xmidSNDVI, scalSNDVI, xmidANDVI, scalANDVI, bias, scale):
-    """
-    Double-logistic function for fitting NDVI profiles.
-    """
-    spring = 1 / (1 + np.exp((xmidSNDVI - t) / scalSNDVI))
-    autumn = 1 / (1 + np.exp((xmidANDVI - t) / scalANDVI))
+# ---------------------------------------------------------------------------
+# Model utilities
+# ---------------------------------------------------------------------------
+def double_logistic(
+    t: np.ndarray,
+    xmid_spring: float,
+    scale_spring: float,
+    xmid_autumn: float,
+    scale_autumn: float,
+    bias: float,
+    scale: float,
+) -> np.ndarray:
+    """Evaluate the double logistic model at ``t``."""
+
+    spring = 1 / (1 + np.exp((xmid_spring - t) / scale_spring))
+    autumn = 1 / (1 + np.exp((xmid_autumn - t) / scale_autumn))
     return bias + scale * (spring - autumn)
 
 
-# In[4]:
+def compute_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Return the coefficient of determination for the valid observations."""
 
-
-# Load NDVI stack
-data = np.load("/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered.npz")
-
-ndvi_stack = data["ndvi_stack"]
-metadata = data["metadata"]
-
-print("Loaded NDVI stack shape:", ndvi_stack.shape)  # (time, 3600, 7200)
-print("Metadata (first 5 entries):", metadata[:5])  # [(year, doy), ...]
-
-
-# In[5]:
-
-
-# Create shared memory for NDVI stack
-ndvi_stack_shape = ndvi_stack.shape
-ndvi_stack_dtype = ndvi_stack.dtype
-shm = shared_memory.SharedMemory(create=True, size=ndvi_stack.nbytes)
-ndvi_stack_shared = np.ndarray(ndvi_stack_shape, dtype=ndvi_stack_dtype, buffer=shm.buf)
-np.copyto(ndvi_stack_shared, ndvi_stack)  # Copy data to shared memory
-
-
-# In[6]:
-
-
-def compute_r2(y_true, y_pred):
-    """ Compute R² score to evaluate goodness-of-fit """
     mask = ~np.isnan(y_true)
     if np.sum(mask) < 5:
-        return np.nan  # Not enough points
+        return float("nan")
 
     slope, intercept, r_value, _, _ = linregress(y_true[mask], y_pred[mask])
-    return r_value ** 2
+    _ = (slope, intercept)  # explicitly ignore unused values
+    return r_value**2
 
 
-# In[7]:
+def _initial_guesses(
+    bias_guess: float, scale_guess: float
+) -> Iterable[Tuple[float, ...]]:
+    """Yield a collection of initial guesses for curve fitting."""
+
+    yield (120, 20, 270, 25, bias_guess, scale_guess)
+    yield (240, 20, 60, 25, bias_guess + scale_guess, scale_guess)
+    yield (240, 20, 60, 25, bias_guess + 0.5 * scale_guess, 1)
+    yield (120, 20, 270, 25, bias_guess + 0.5 * scale_guess, 1)
 
 
-num_params = 6  # Number of fitted parameters
+def process_pixel(row: int, col: int, shm_name: str) -> np.ndarray:
+    """Fit the double logistic model for a single pixel."""
 
-# Define new output shape
-num_metrics = 2  # [fit_quality, fit_status]
-ndvi_fit_metrics = np.full((num_rows, num_cols, num_metrics), np.nan, dtype=np.float32)  # R² and status
+    assert METADATA is not None, "Metadata must be loaded before processing"
+    assert NDVI_STACK_SHAPE is not None, "Stack shape must be available"
+    assert NDVI_STACK_DTYPE is not None, "Stack dtype must be available"
 
-result_length = num_params + num_metrics
-
-# Function to process a single pixel (row, col)
-def process_pixel(row, col, shm_name):
-    """Fit the double-logistic function for one pixel using multiple initial guesses.
-    Returns a vector of length 8: [6 fitted parameters, R², covariance quality]."""
-    # Reconnect to shared memory
     existing_shm = shared_memory.SharedMemory(name=shm_name)
-    ndvi_stack_shared = np.ndarray(ndvi_stack_shape, dtype=ndvi_stack_dtype, buffer=existing_shm.buf)
-    
-    # Extract NDVI time series for this pixel
-    ndvi_timeseries = ndvi_stack_shared[:, row_start + row, col_start + col]
-    if np.isnan(ndvi_timeseries).all():
-        return np.full(result_length, np.nan)
-    
-    # Apply winter NDVI correction
-    winter_ndvi = np.nanquantile(ndvi_timeseries, 0.025)
-    corrected_ndvi = np.copy(ndvi_timeseries)
-    corrected_ndvi[ndvi_timeseries < winter_ndvi] = winter_ndvi
-    
-    # Replace missing winter values (DOY >=300 or <=60)
-    for i, (year, doy) in enumerate(metadata):
-        if np.isnan(corrected_ndvi[i]) and (doy >= 300 or doy <= 60):
-            corrected_ndvi[i] = winter_ndvi
-            
-    # Apply a moving median filter (window size = 3)
-    filtered_ndvi = median_filter(corrected_ndvi, size=3)
-    
-    # Extract NDVI values for selected years (2002-2010)
-    doy_values, ndvi_values = [], []
-    for i, (year, doy) in enumerate(metadata):
-        if 2002 <= year <= 2010 and not np.isnan(filtered_ndvi[i]):
-            doy_values.append(doy)
-            ndvi_values.append(filtered_ndvi[i])
-    
-    doy_values = np.array(doy_values)
-    ndvi_values = np.array(ndvi_values)
-    if len(ndvi_values) < 100:
-        return np.full(result_length, np.nan)
-    
-    # Define candidate initial guesses
-    bias_guess = np.min(ndvi_values)
-    scale_guess = np.max(ndvi_values) - np.min(ndvi_values)
-    initial_guess_1 = [120, 20, 270, 25, bias_guess, scale_guess]  # typical northern hemisphere
-    initial_guess_2 = [240, 20, 60, 25, bias_guess+scale_guess, scale_guess]   # possible southern pattern
-    initial_guess_3 = [240, 20, 60, 25, bias_guess+0.5*scale_guess, 1] # southern equitorial 
-    initial_guess_4 = [120, 20, 270, 25, bias_guess+0.5*scale_guess, 1] # northern equitorial
-    candidate_guesses = [initial_guess_1, initial_guess_2, initial_guess_3, initial_guess_4]
+    try:
+        ndvi_stack = np.ndarray(
+            NDVI_STACK_SHAPE, dtype=NDVI_STACK_DTYPE, buffer=existing_shm.buf
+        )
 
-    # Define parameter bounds
-    lower_bounds = [0, 1e-5, 0, 1e-5, -np.inf, 1e-5]  # Lower bounds
-    upper_bounds = [365, np.inf, 365, np.inf, np.inf, np.inf]  # Upper bounds
-    
-    best_fit = None
-    best_r2 = -np.inf
-    best_cov_quality = np.nan
-    
-    # Try each candidate initial guess.
-    for guess in candidate_guesses:
-        try:
-            with warnings.catch_warnings():
-                # Ignore OptimizeWarning but treat RuntimeWarning as error
-                warnings.filterwarnings("ignore", category=OptimizeWarning)
-                warnings.filterwarnings("error", category=RuntimeWarning)
-                params, covariance = curve_fit(double_logistic, doy_values, ndvi_values, p0=guess, bounds=(lower_bounds, upper_bounds))
-            ndvi_fitted = double_logistic(doy_values, *params)
-            r2_score = compute_r2(ndvi_values, ndvi_fitted)
-            if (not np.isnan(r2_score)) and (r2_score > best_r2):
-                best_r2 = r2_score
-                best_fit = params
-                std_errors = np.sqrt(np.diag(covariance))
-                best_cov_quality = np.mean(std_errors)
-        except (RuntimeError, RuntimeWarning):
-            continue
-    
-    if best_fit is None:
-        return np.full(result_length, np.nan)
-    
-    return np.concatenate([best_fit, [best_r2, best_cov_quality]])
+        ndvi_timeseries = ndvi_stack[:, ROW_START + row, COL_START + col]
+        if np.isnan(ndvi_timeseries).all():
+            return np.full(RESULT_LENGTH, np.nan, dtype=np.float32)
 
+        winter_ndvi = np.nanquantile(ndvi_timeseries, 0.025)
+        corrected_ndvi = np.copy(ndvi_timeseries)
+        corrected_ndvi[ndvi_timeseries < winter_ndvi] = winter_ndvi
+
+        for i, (year, doy) in enumerate(METADATA):
+            if np.isnan(corrected_ndvi[i]) and (doy >= 300 or doy <= 60):
+                corrected_ndvi[i] = winter_ndvi
+
+        filtered_ndvi = median_filter(corrected_ndvi, size=3)
+
+        doy_values: list[int] = []
+        ndvi_values: list[float] = []
+        for i, (year, doy) in enumerate(METADATA):
+            if 2002 <= year <= 2010 and not np.isnan(filtered_ndvi[i]):
+                doy_values.append(int(doy))
+                ndvi_values.append(float(filtered_ndvi[i]))
+
+        doy_values = np.array(doy_values, dtype=np.float32)
+        ndvi_values = np.array(ndvi_values, dtype=np.float32)
+        if ndvi_values.size < 100:
+            return np.full(RESULT_LENGTH, np.nan, dtype=np.float32)
+
+        bias_guess = float(np.min(ndvi_values))
+        scale_guess = float(np.max(ndvi_values) - bias_guess)
+        lower_bounds = [0, 1e-5, 0, 1e-5, -np.inf, 1e-5]
+        upper_bounds = [365, np.inf, 365, np.inf, np.inf, np.inf]
+
+        best_fit: np.ndarray | None = None
+        best_r2 = -np.inf
+        best_cov_quality = float("nan")
+
+        for guess in _initial_guesses(bias_guess, scale_guess):
+            try:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore", category=OptimizeWarning)
+                    warnings.filterwarnings("error", category=RuntimeWarning)
+                    params, covariance = curve_fit(
+                        double_logistic,
+                        doy_values,
+                        ndvi_values,
+                        p0=guess,
+                        bounds=(lower_bounds, upper_bounds),
+                    )
+                ndvi_fitted = double_logistic(doy_values, *params)
+                r2_score = compute_r2(ndvi_values, ndvi_fitted)
+                if not np.isnan(r2_score) and r2_score > best_r2:
+                    best_r2 = r2_score
+                    best_fit = params
+                    std_errors = np.sqrt(np.diag(covariance))
+                    best_cov_quality = float(np.mean(std_errors))
+            except (RuntimeError, RuntimeWarning):
+                continue
+
+        if best_fit is None:
+            return np.full(RESULT_LENGTH, np.nan, dtype=np.float32)
+
+        return np.concatenate([best_fit, [best_r2, best_cov_quality]]).astype(
+            np.float32
+        )
+    finally:
+        existing_shm.close()
 
 
-# In[8]:
+def _create_shared_copy(
+    array: np.ndarray,
+) -> tuple[shared_memory.SharedMemory, np.ndarray]:
+    """Return shared memory containing ``array`` and a writable NumPy view."""
+
+    shm = shared_memory.SharedMemory(create=True, size=array.nbytes)
+    shm_array = np.ndarray(array.shape, dtype=array.dtype, buffer=shm.buf)
+    np.copyto(shm_array, array)
+    return shm, shm_array
 
 
-# Flatten row/col indices for parallel execution
-all_pixel_indices = [(row, col) for row in range(num_rows) for col in range(num_cols)]
+def main() -> None:
+    global METADATA, NDVI_STACK_DTYPE, NDVI_STACK_SHAPE
 
-# Run parallelized fitting
-all_pixel_indices = [(row, col) for row in range(num_rows) for col in range(num_cols)]
-num_jobs = -1  # Use all CPU cores
+    if not NDVI_STACK_PATH.exists():
+        raise FileNotFoundError(f"NDVI stack not found at {NDVI_STACK_PATH}")
 
-results = Parallel(
-    n_jobs=num_jobs,
-    backend="loky",
-    initializer=lower_process_priority,
-)(
-    delayed(process_pixel)(row, col, shm.name) for row, col in tqdm(all_pixel_indices, desc="Processing pixels")
-)
+    print(f"Loading NDVI stack from {NDVI_STACK_PATH} …")
+    data = np.load(NDVI_STACK_PATH)
+    ndvi_stack = data["ndvi_stack"]
+    METADATA = data["metadata"]
+
+    print(f"Loaded NDVI stack shape: {ndvi_stack.shape}")
+    print(f"Metadata (first 5 entries): {METADATA[:5]}")
+
+    NDVI_STACK_SHAPE = ndvi_stack.shape
+    NDVI_STACK_DTYPE = ndvi_stack.dtype
+
+    shm, _ = _create_shared_copy(ndvi_stack)
+
+    num_rows = ROW_END - ROW_START
+    num_cols = COL_END - COL_START
+    pixel_indices = [(row, col) for row in range(num_rows) for col in range(num_cols)]
+
+    print(
+        f"Processing {len(pixel_indices):,} pixels across {num_rows} rows and {num_cols} columns …"
+    )
+
+    try:
+        results = Parallel(
+            n_jobs=-1,
+            backend="loky",
+            initializer=lower_process_priority,
+        )(
+            delayed(process_pixel)(row, col, shm.name)
+            for row, col in tqdm(pixel_indices, desc="Processing pixels")
+        )
+    finally:
+        shm.close()
+        shm.unlink()
+
+    ndvi_fit_all = np.array(results, dtype=np.float32).reshape(
+        (num_rows, num_cols, RESULT_LENGTH)
+    )
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(OUTPUT_PATH, ndvi_fit_all=ndvi_fit_all)
+    print(
+        f"Saved fitted NDVI parameters and quality metrics (shape {ndvi_fit_all.shape}) "
+        f"to {OUTPUT_PATH}"
+    )
 
 
-# In[9]:
-
-
-# Reshape results into a 3D array: (num_rows, num_cols, 8)
-ndvi_fit_all = np.array(results).reshape((num_rows, num_cols, result_length))
-
-# --- Save the results as a single file ---
-save_path = "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz"
-np.savez_compressed(save_path, ndvi_fit_all=ndvi_fit_all)
-
-# Cleanup shared memory
-shm.close()
-shm.unlink()
-
-print(f" Saved fitted NDVI parameters and quality metrics (shape {ndvi_fit_all.shape}) to {save_path}")
-
-
-# In[ ]:
-
-
-
-
+if __name__ == "__main__":
+    main()

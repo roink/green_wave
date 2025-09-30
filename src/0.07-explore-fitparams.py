@@ -9,7 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 FILE_PATH = Path("/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz")
-CLEANED_OUTPUT_PATH = Path("/work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz")
+CLEANED_OUTPUT_PATH = Path(
+    "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz"
+)
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 MAP_DIR = FIGURE_ROOT / "maps"
 PROFILE_DIR = FIGURE_ROOT / "profiles"
@@ -23,7 +25,9 @@ PARAM_NAMES = ["xmidSNDVI", "scalSNDVI", "xmidANDVI", "scalANDVI", "bias", "scal
 def load_parameters() -> np.ndarray:
     data = np.load(FILE_PATH)
     ndvi_fit_params = data["ndvi_fit_all"]
-    print(f"Loaded NDVI fit parameters with shape {ndvi_fit_params.shape} from {FILE_PATH}")
+    print(
+        f"Loaded NDVI fit parameters with shape {ndvi_fit_params.shape} from {FILE_PATH}"
+    )
     return ndvi_fit_params
 
 
@@ -31,8 +35,10 @@ def summarise_parameters(ndvi_fit_params: np.ndarray, title: str) -> None:
     print(f"\nParameter summary: {title}")
     for i, param in enumerate(PARAM_NAMES):
         param_data = ndvi_fit_params[:, :, i]
-        print(f"  {param} -> min {np.nanmin(param_data):.2f}, max {np.nanmax(param_data):.2f}, "
-              f"mean {np.nanmean(param_data):.2f}, median {np.nanmedian(param_data):.2f}, std {np.nanstd(param_data):.2f}")
+        print(
+            f"  {param} -> min {np.nanmin(param_data):.2f}, max {np.nanmax(param_data):.2f}, "
+            f"mean {np.nanmean(param_data):.2f}, median {np.nanmedian(param_data):.2f}, std {np.nanstd(param_data):.2f}"
+        )
 
 
 def apply_constraints(ndvi_fit_params: np.ndarray) -> np.ndarray:
@@ -48,15 +54,21 @@ def apply_constraints(ndvi_fit_params: np.ndarray) -> np.ndarray:
     for idx, (lower, upper) in constraints.items():
         original_invalid = np.count_nonzero(~np.isnan(ndvi_fit_params[:, :, idx]))
         param_data = ndvi_fit_params[:, :, idx]
-        param_data = np.where((param_data >= lower) & (param_data <= upper), param_data, np.nan)
+        param_data = np.where(
+            (param_data >= lower) & (param_data <= upper), param_data, np.nan
+        )
         ndvi_fit_params[:, :, idx] = param_data
         remaining = np.count_nonzero(~np.isnan(param_data))
-        print(f"Applied bounds {lower}-{upper} to {PARAM_NAMES[idx]}: kept {remaining} / {original_invalid} values")
+        print(
+            f"Applied bounds {lower}-{upper} to {PARAM_NAMES[idx]}: kept {remaining} / {original_invalid} values"
+        )
 
     return ndvi_fit_params
 
 
-def plot_param_map(ndvi_fit_params: np.ndarray, param_idx: int, title: str, cmap: str = "viridis") -> Path:
+def plot_param_map(
+    ndvi_fit_params: np.ndarray, param_idx: int, title: str, cmap: str = "viridis"
+) -> Path:
     param_data = ndvi_fit_params[:, :, param_idx]
 
     fig, ax = plt.subplots(figsize=(10, 6))

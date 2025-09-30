@@ -4,11 +4,8 @@
 # In[1]:
 
 
-import os
 import h5py
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 
 
 # In[2]:
@@ -50,7 +47,7 @@ with h5py.File(old_hdf5_file, "r") as old_h5f, h5py.File(new_hdf5_file, "w") as 
         shape=old_data.shape,
         dtype=old_data.dtype,
         chunks=new_chunk_size,
-        compression="lzf"
+        compression="lzf",
     )
 
     # Copy data in chunks to avoid memory issues
@@ -71,10 +68,15 @@ with h5py.File(old_file, "r") as old_h5, h5py.File(new_file, "r") as new_h5:
     print("New shape:", new_h5["ndvi_stack"].shape)
     print("Old dtype:", old_h5["ndvi_stack"].dtype)
     print("New dtype:", new_h5["ndvi_stack"].dtype)
-    
+
     # Compare random samples
     idx = np.random.randint(0, old_h5["ndvi_stack"].shape[0])
-    print("Sample comparison:", np.allclose(old_h5["ndvi_stack"][idx], new_h5["ndvi_stack"][idx], equal_nan=True))
+    print(
+        "Sample comparison:",
+        np.allclose(
+            old_h5["ndvi_stack"][idx], new_h5["ndvi_stack"][idx], equal_nan=True
+        ),
+    )
 
 
 # In[7]:
@@ -102,7 +104,7 @@ with h5py.File(old_hdf5_file, "r") as old_h5f, h5py.File(new_hdf5_file, "w") as 
         shape=old_data.shape,
         dtype=old_data.dtype,
         chunks=new_chunk_size,
-        compression="lzf"
+        compression="lzf",
     )
 
     # Copy data in chunks to avoid memory issues
@@ -137,7 +139,7 @@ with h5py.File(old_hdf5_file, "r") as old_h5f, h5py.File(new_hdf5_file, "w") as 
         shape=old_data.shape,
         dtype=old_data.dtype,
         chunks=new_chunk_size,
-        compression="lzf"
+        compression="lzf",
     )
 
     # Copy data in chunks to avoid memory issues
@@ -148,7 +150,3 @@ print(f"Optimized HDF5 saved to {new_hdf5_file}")
 
 
 # In[ ]:
-
-
-
-

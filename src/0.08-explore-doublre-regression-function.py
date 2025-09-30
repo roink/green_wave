@@ -12,7 +12,15 @@ FIGURE_DIR = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).ste
 FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def double_logistic(t: np.ndarray, xmidSNDVI: float, scalSNDVI: float, xmidANDVI: float, scalANDVI: float, bias: float, scale: float) -> np.ndarray:
+def double_logistic(
+    t: np.ndarray,
+    xmidSNDVI: float,
+    scalSNDVI: float,
+    xmidANDVI: float,
+    scalANDVI: float,
+    bias: float,
+    scale: float,
+) -> np.ndarray:
     spring = 1 / (1 + np.exp((xmidSNDVI - t) / scalSNDVI))
     autumn = 1 / (1 + np.exp((xmidANDVI - t) / scalANDVI))
     return bias + scale * (spring - autumn)

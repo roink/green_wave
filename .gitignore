@@ -50,3 +50,4 @@ build/
 /figure/*
 !/figure/
 !/figure/.gitkeep
+!/figure/README.md
