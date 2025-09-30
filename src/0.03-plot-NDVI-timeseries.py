@@ -1,86 +1,74 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Plot NDVI time-series for selected lat/lon locations."""
 
-# In[1]:
+from __future__ import annotations
 
+from pathlib import Path
 
-import os
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
+HDF5_FILE = Path("/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5")
+FIGURE_DIR = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# In[2]:
+def lat_lon_to_indices(lat: float, lon: float) -> tuple[int, int]:
+    """Convert latitude and longitude to array indices."""
+
+    row_idx = int((90 - lat) / 0.05)
+    col_idx = int((lon + 180) / 0.05)
+    print(f"Converted ({lat}°, {lon}°) -> row {row_idx}, column {col_idx}")
+    return row_idx, col_idx
 
 
-# Path to HDF5 file
-hdf5_file = "/work/pschluet/green_wave/data/intermediate/ndvi_stack_optimized.h5"
+def get_ndvi_timeseries(lat: float, lon: float) -> tuple[list[pd.Timestamp], np.ndarray]:
+    """Extract NDVI values and corresponding timestamps for a location."""
 
-# -------------------------------
-# Function to extract NDVI time series for a given lat/lon
-# -------------------------------
-def get_ndvi_timeseries(lat, lon):
-    """Extract NDVI time series from HDF5 for a given latitude & longitude."""
-    
-    # Convert latitude & longitude to row/column indices
-    row_idx = int((90 - lat) / 0.05)  # Convert latitude to row
-    col_idx = int((lon + 180) / 0.05)  # Convert longitude to column
-    print(f"Nearest pixel index: row={row_idx}, col={col_idx}")
+    row_idx, col_idx = lat_lon_to_indices(lat, lon)
 
-    # Open HDF5 file and read metadata and NDVI time series
-    with h5py.File(hdf5_file, "r") as h5f:
-        metadata = h5f["metadata"][:]  # Load (year, doy)
-        ndvi_timeseries = h5f["ndvi_stack"][:, row_idx, col_idx]  # Load only the required pixel
+    with h5py.File(HDF5_FILE, "r") as h5f:
+        metadata = h5f["metadata"][:]
+        ndvi_timeseries = h5f["ndvi_stack"][:, row_idx, col_idx]
 
-    # Remove NaNs for plotting clarity
     valid_mask = ~np.isnan(ndvi_timeseries)
     ndvi_timeseries = ndvi_timeseries[valid_mask]
-    valid_dates = metadata[valid_mask]  # Keep only valid time steps
-
-    # Convert metadata (year, DOY) to actual dates
+    valid_dates = metadata[valid_mask]
     dates = [pd.to_datetime(f"{year}-{doy:03d}", format="%Y-%j") for year, doy in valid_dates]
 
+    print(f"Loaded {len(dates)} observations for ({lat}°, {lon}°)")
     return dates, ndvi_timeseries
 
 
-# In[3]:
+def plot_ndvi(lat: float, lon: float) -> Path:
+    """Create a plot of the NDVI time series and save it to disk."""
 
-
-# -------------------------------
-# Function to plot NDVI time series
-# -------------------------------
-def plot_ndvi(lat, lon):
-    """Plot the NDVI time series for a given latitude & longitude."""
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
 
-    plt.figure(figsize=(12, 5))
-    plt.plot(dates, ndvi_timeseries, marker="o", linestyle="-", color="green", label="NDVI")
-    plt.xlabel("Date")
-    plt.ylabel("NDVI")
-    plt.title(f"NDVI Time Series at ({lat}°N, {lon}°E)")
-    plt.grid(True)
-    plt.legend()
-    plt.show()
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(dates, ndvi_timeseries, marker="o", linestyle="-", color="green", label="NDVI")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("NDVI")
+    ax.set_title(f"NDVI Time Series at ({lat}°N, {lon}°E)")
+    ax.grid(True)
+    ax.legend()
+
+    safe_lat = str(lat).replace(".", "p")
+    safe_lon = str(lon).replace(".", "p")
+    output_path = FIGURE_DIR / f"ndvi-timeseries-{safe_lat}N-{safe_lon}E.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+    print(f"Saved NDVI time series plot to {output_path}")
+    return output_path
 
 
-# In[4]:
+def main() -> None:
+    for lat in (40.0, 50.0, 60.0):
+        plot_ndvi(lat, 16.0)
 
 
-# -------------------------------
-# Plot NDVI Time Series for Given Locations
-# -------------------------------
-plot_ndvi(40.0, 16)  # NDVI at 40°N, 16°E
-
-
-# In[5]:
-
-
-plot_ndvi(50.0, 16)  # NDVI at 50°N, 16°E
-
-
-# In[6]:
-
-
-plot_ndvi(60.0, 16)  # NDVI at 60°N, 16°E
-
+if __name__ == "__main__":
+    main()

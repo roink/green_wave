@@ -1,106 +1,95 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Inspect a sample NDVI file and export quick-look visualisations."""
 
-# In[1]:
+from __future__ import annotations
 
+from pathlib import Path
 
-from pyhdf.SD import SD, SDC
-
-file_path = "/data/hescor/pschluet/green_wave/data/NDVI/MOD13C1.A2009241.061.2021141172023.hdf"
-
-# Open the HDF file
-hdf = SD(file_path, SDC.READ)
-
-# List available datasets
-datasets = hdf.datasets()
-print("Datasets in file:")
-for key, value in datasets.items():
-    print(f"{key}: {value}")
-
-# Print global attributes (metadata)
-attrs = hdf.attributes()
-print("\nMetadata:")
-for attr, value in attrs.items():
-    print(f"{attr}: {value}")
-
-
-# In[2]:
-
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from pyhdf.SD import SD, SDC
 
-# Open HDF4 file
-hdf = SD(file_path, SDC.READ)
 
-# Check dataset names
-datasets = hdf.datasets()
-print("Datasets:", datasets.keys())
-
-# Select NDVI dataset (may need adjustment)
-ndvi_data = hdf.select("CMG 0.05 Deg 16 days NDVI")[:]
-
-# Handle fill values (-3000 is often used in MODIS)
-ndvi_data = np.where(ndvi_data == -3000, np.nan, ndvi_data)
-
-# Plot NDVI
-plt.figure(figsize=(10, 6))
-plt.imshow(ndvi_data, cmap="RdYlGn", vmin=-2000, vmax=10000)
-plt.colorbar(label="NDVI Value")
-plt.title("MODIS NDVI, 2009 day 241")
-
-# Save the figure
-output_path = "../figures/global_ndvi_sample"
-plt.savefig(f"{output_path}.png", dpi=300, bbox_inches='tight')
-plt.savefig(f"{output_path}.eps", format='eps', bbox_inches='tight')
-
-plt.show()
+FILE_PATH = Path(
+    "/data/hescor/pschluet/green_wave/data/NDVI/MOD13C1.A2009241.061.2021141172023.hdf"
+)
 
 
-# In[3]:
+def figure_directory() -> Path:
+    """Return the directory where figures for this script are stored."""
+
+    directory = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
 
 
-# Select NDVI dataset (may need adjustment)
-ndvi_quality = hdf.select("CMG 0.05 Deg 16 days pixel reliability")[:]
+def open_dataset(file_path: Path) -> SD:
+    """Open the provided HDF file and return the dataset handle."""
+
+    print(f"Opening HDF file: {file_path}")
+    return SD(str(file_path), SDC.READ)
 
 
-# In[4]:
+def describe_file(hdf: SD) -> None:
+    """Print dataset names and metadata contained in the HDF file."""
+
+    datasets = hdf.datasets()
+    print("Datasets in file:")
+    for key, value in datasets.items():
+        print(f"  {key}: {value}")
+
+    attrs = hdf.attributes()
+    print("\nMetadata:")
+    for attr, value in attrs.items():
+        print(f"  {attr}: {value}")
 
 
-import numpy as np
-from collections import Counter
+def plot_ndvi(hdf: SD, output_dir: Path) -> None:
+    """Plot the NDVI data layer and save it as a PNG image."""
 
-# Extract unique values and their frequencies
-unique_values, counts = np.unique(ndvi_quality, return_counts=True)
+    ndvi_data = hdf.select("CMG 0.05 Deg 16 days NDVI")[:]
+    ndvi_data = np.where(ndvi_data == -3000, np.nan, ndvi_data)
 
-# Print unique values with their counts
-print("Unique values in the quality dataset and their frequencies:")
-for value, count in zip(unique_values, counts):
-    print(f"{value}: {count}")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    img = ax.imshow(ndvi_data, cmap="RdYlGn", vmin=-2000, vmax=10000)
+    fig.colorbar(img, label="NDVI Value", ax=ax)
+    ax.set_title("MODIS NDVI, 2009 day 241")
 
-
-# In[5]:
-
-
-# Handle fill values (-3000 is often used in MODIS)
-
-# Plot NDVI
-plt.figure(figsize=(10, 6))
-plt.imshow(ndvi_quality, cmap="RdYlGn", )
-plt.colorbar(label="NDVI Quality")
-plt.title("NDVI Quality, 2009 day 241")
-
-# Save the figure
-output_path = "../figures/data_quality_sample"
-plt.savefig(f"{output_path}.png", dpi=300, bbox_inches='tight')
-plt.savefig(f"{output_path}.eps", format='eps', bbox_inches='tight')
-
-plt.show()
+    output_path = output_dir / "global-ndvi-sample.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved NDVI preview to {output_path}")
 
 
-# In[ ]:
+def plot_quality(hdf: SD, output_dir: Path) -> None:
+    """Plot the pixel reliability layer and save it as a PNG image."""
+
+    ndvi_quality = hdf.select("CMG 0.05 Deg 16 days pixel reliability")[:]
+
+    unique_values, counts = np.unique(ndvi_quality, return_counts=True)
+    print("Unique values in the quality dataset and their frequencies:")
+    for value, count in zip(unique_values, counts):
+        print(f"  {value}: {count}")
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    img = ax.imshow(ndvi_quality, cmap="RdYlGn")
+    fig.colorbar(img, label="NDVI Quality", ax=ax)
+    ax.set_title("NDVI Quality, 2009 day 241")
+
+    output_path = output_dir / "global-ndvi-quality.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved NDVI quality preview to {output_path}")
 
 
+def main() -> None:
+    output_dir = figure_directory()
+    hdf = open_dataset(FILE_PATH)
+    describe_file(hdf)
+    plot_ndvi(hdf, output_dir)
+    plot_quality(hdf, output_dir)
 
+
+if __name__ == "__main__":
+    main()
 

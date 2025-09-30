@@ -1,105 +1,107 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Build a filtered NDVI stack from raw MODIS HDF files."""
 
-# In[1]:
+from __future__ import annotations
 
-
-import os
 import glob
 import re
-import numpy as np
+from pathlib import Path
+
 import h5py
+import numpy as np
 from pyhdf.SD import SD, SDC
-from tqdm.notebook import tqdm
+from tqdm import tqdm
+
+DATA_PATH = Path("/data/hescor/pschluet/green_wave/data/NDVI")
+OUTPUT_PATH = Path(
+    "/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5"
+)
 
 
-# In[2]:
+def discover_files() -> list[Path]:
+    """Locate NDVI HDF files to process."""
+
+    files = sorted(Path(path) for path in glob.glob(str(DATA_PATH / "MOD13C1.A*.hdf")))
+    if not files:
+        raise FileNotFoundError(f"No HDF files matching MOD13C1 pattern found in {DATA_PATH}")
+
+    print(f"Discovered {len(files)} files in {DATA_PATH}")
+    return files
 
 
-# Path to raw HDF files
-data_path = "/data/hescor/pschluet/green_wave/data/NDVI"
-hdf_files = sorted(glob.glob(os.path.join(data_path, "MOD13C1.A*.hdf")))
+def extract_date(filename: Path) -> tuple[int | None, int | None]:
+    """Extract (year, day-of-year) information from the file name."""
 
-# Get spatial dimensions from first file
-first_file = SD(hdf_files[0], SDC.READ)
-ndvi_shape = first_file.select("CMG 0.05 Deg 16 days NDVI")[:].shape  # (3600, 7200)
-first_file.end()
-
-# Total time steps (number of HDF files)
-num_timesteps = len(hdf_files)
-
-# Output HDF5 file path
-hdf5_output_path = "/work/pschluet/green_wave/data/intermediate/ndvi_stack_filtered_all.h5"
-
-
-
-# In[3]:
-
-
-# Function to extract date from filename
-def extract_date(filename):
-    match = re.search(r"A(\d{4})(\d{3})", filename)
+    match = re.search(r"A(\d{4})(\d{3})", filename.name)
     if match:
-        return int(match.group(1)), int(match.group(2))  # (year, doy)
+        return int(match.group(1)), int(match.group(2))
     return None, None
 
 
-# In[4]:
+def determine_shape(example_file: Path) -> tuple[int, int]:
+    """Inspect the first file to determine the spatial dimensions."""
+
+    with SD(str(example_file), SDC.READ) as hdf:
+        shape = hdf.select("CMG 0.05 Deg 16 days NDVI")[:].shape
+    print(f"Detected NDVI grid shape {shape} from {example_file.name}")
+    return shape
 
 
-# Create HDF5 file with chunked datasets
-with h5py.File(hdf5_output_path, "w") as h5f:
-    # Create NDVI dataset with chunking for better performance
-    dset_ndvi = h5f.create_dataset(
-        "ndvi_stack",
-        shape=(num_timesteps, *ndvi_shape),
-        dtype=np.float32,  # Use reduced precision to save memory
-        chunks=(1, ndvi_shape[0], ndvi_shape[1]),  # Chunk by time step
-        compression="lzf"
-    )
+def build_stack(hdf_files: list[Path], ndvi_shape: tuple[int, int]) -> None:
+    """Create an HDF5 stack that stores filtered NDVI data."""
 
-    # Create metadata dataset (year, doy)
-    dset_metadata = h5f.create_dataset(
-        "metadata",
-        shape=(num_timesteps, 2),  # (year, doy)
-        dtype=np.int32
-    )
+    num_timesteps = len(hdf_files)
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    # Process each file and store in HDF5
-    for i, file_path in tqdm(enumerate(hdf_files), total=len(hdf_files), desc="Processing HDF files"):
-        year, doy = extract_date(file_path)
-        if year is None:
-            continue  # Skip if date not found
+    with h5py.File(OUTPUT_PATH, "w") as h5f:
+        dset_ndvi = h5f.create_dataset(
+            "ndvi_stack",
+            shape=(num_timesteps, *ndvi_shape),
+            dtype=np.float32,
+            chunks=(1, ndvi_shape[0], ndvi_shape[1]),
+            compression="lzf",
+        )
 
-        # Store metadata
-        dset_metadata[i] = (year, doy)
+        dset_metadata = h5f.create_dataset(
+            "metadata",
+            shape=(num_timesteps, 2),
+            dtype=np.int32,
+        )
 
-        # Open HDF file
-        hdf = SD(file_path, SDC.READ)
+        for i, file_path in enumerate(
+            tqdm(hdf_files, desc="Processing HDF files", unit="file")
+        ):
+            year, doy = extract_date(file_path)
+            if year is None:
+                print(f"Skipping {file_path.name}: no date metadata found in file name")
+                continue
 
-        # Read NDVI data
-        try:
-            ndvi_data = hdf.select("CMG 0.05 Deg 16 days NDVI")[:]
-            ndvi_reliability = hdf.select("CMG 0.05 Deg 16 days pixel reliability")[:]
-        except Exception as e:
-            print(f"Could not read NDVI or reliability from {file_path}: {e}")
-            continue
+            dset_metadata[i] = (year, doy)
 
-        # Convert fill values (-3000) to NaN
-        ndvi_data = np.where(ndvi_data == -3000, np.nan, ndvi_data)
+            with SD(str(file_path), SDC.READ) as hdf:
+                try:
+                    ndvi_data = hdf.select("CMG 0.05 Deg 16 days NDVI")[:]
+                    ndvi_reliability = hdf.select(
+                        "CMG 0.05 Deg 16 days pixel reliability"
+                    )[:]
+                except Exception as exc:  # pragma: no cover - diagnostic output
+                    print(f"Could not read {file_path.name}: {exc}")
+                    continue
 
-        # Apply reliability filter: set to NaN where reliability is <0 (no data) or >2 (snow/ice)
-        mask = (ndvi_reliability < 0) | (ndvi_reliability > 2)
-        ndvi_data[mask] = np.nan
+            ndvi_data = np.where(ndvi_data == -3000, np.nan, ndvi_data)
+            mask = (ndvi_reliability < 0) | (ndvi_reliability > 2)
+            ndvi_data[mask] = np.nan
 
-        # Store in HDF5 dataset
-        dset_ndvi[i, :, :] = ndvi_data
+            dset_ndvi[i, :, :] = ndvi_data
 
-print(f"Filtered NDVI stack saved at {hdf5_output_path}")
-
-
-# In[ ]:
+    print(f"Filtered NDVI stack saved at {OUTPUT_PATH}")
 
 
+def main() -> None:
+    hdf_files = discover_files()
+    ndvi_shape = determine_shape(hdf_files[0])
+    build_stack(hdf_files, ndvi_shape)
 
 
+if __name__ == "__main__":
+    main()

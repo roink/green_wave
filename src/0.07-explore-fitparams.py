@@ -1,180 +1,109 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""Inspect and clean NDVI double-logistic fit parameters."""
 
-# In[1]:
+from __future__ import annotations
 
+from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.pyplot as plt
+
+FILE_PATH = Path("/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz")
+CLEANED_OUTPUT_PATH = Path("/work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz")
+FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
+MAP_DIR = FIGURE_ROOT / "maps"
+PROFILE_DIR = FIGURE_ROOT / "profiles"
+
+for directory in (MAP_DIR, PROFILE_DIR):
+    directory.mkdir(parents=True, exist_ok=True)
+
+PARAM_NAMES = ["xmidSNDVI", "scalSNDVI", "xmidANDVI", "scalANDVI", "bias", "scale"]
 
 
-# In[2]:
+def load_parameters() -> np.ndarray:
+    data = np.load(FILE_PATH)
+    ndvi_fit_params = data["ndvi_fit_all"]
+    print(f"Loaded NDVI fit parameters with shape {ndvi_fit_params.shape} from {FILE_PATH}")
+    return ndvi_fit_params
 
 
-# Path to the saved file
-file_path = "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz"
-
-# Load the data
-data = np.load(file_path)
-
-
-# In[3]:
+def summarise_parameters(ndvi_fit_params: np.ndarray, title: str) -> None:
+    print(f"\nParameter summary: {title}")
+    for i, param in enumerate(PARAM_NAMES):
+        param_data = ndvi_fit_params[:, :, i]
+        print(f"  {param} -> min {np.nanmin(param_data):.2f}, max {np.nanmax(param_data):.2f}, "
+              f"mean {np.nanmean(param_data):.2f}, median {np.nanmedian(param_data):.2f}, std {np.nanstd(param_data):.2f}")
 
 
-data
+def apply_constraints(ndvi_fit_params: np.ndarray) -> np.ndarray:
+    constraints = {
+        0: (0, 365),  # xmidSNDVI
+        2: (0, 365),  # xmidANDVI
+        1: (1, 100),  # scalSNDVI
+        3: (1, 100),  # scalANDVI
+        4: (0, 10000),  # bias
+        5: (0, 10000),  # scale
+    }
+
+    for idx, (lower, upper) in constraints.items():
+        original_invalid = np.count_nonzero(~np.isnan(ndvi_fit_params[:, :, idx]))
+        param_data = ndvi_fit_params[:, :, idx]
+        param_data = np.where((param_data >= lower) & (param_data <= upper), param_data, np.nan)
+        ndvi_fit_params[:, :, idx] = param_data
+        remaining = np.count_nonzero(~np.isnan(param_data))
+        print(f"Applied bounds {lower}-{upper} to {PARAM_NAMES[idx]}: kept {remaining} / {original_invalid} values")
+
+    return ndvi_fit_params
 
 
-# In[4]:
-
-
-ndvi_fit_params = data["ndvi_fit_all"]  # Shape: (rows, cols, 6)
-
-# Check the shape
-print("Loaded NDVI fit parameters shape:", ndvi_fit_params.shape)
-
-
-# In[5]:
-
-
-param_names = ["xmidSNDVI", "scalSNDVI", "xmidANDVI", "scalANDVI", "bias", "scale"]
-
-# Compute basic statistics
-for i, param in enumerate(param_names):
-    param_data = ndvi_fit_params[:, :, i]
-    valid_values = param_data[~np.isnan(param_data)]  # Exclude NaNs
-
-    print(f"\n {param}:")
-    print(f"  Min:  {np.nanmin(param_data):.2f}")
-    print(f"  Max:  {np.nanmax(param_data):.2f}")
-    print(f"  Mean: {np.nanmean(param_data):.2f}")
-    print(f"  Median:  {np.nanmedian(param_data):.2f}")
-    print(f"  Std:  {np.nanstd(param_data):.2f}")
-
-
-# In[6]:
-
-
-# Define parameter constraints
-xmid_min, xmid_max = 0, 365
-scal_min, scal_max = 1, 100
-bias_min, bias_max = 0, 10000
-scale_min, scale_max = 0, 10000
-
-# Apply filtering
-ndvi_fit_params[:, :, 0] = np.where(
-    (ndvi_fit_params[:, :, 0] >= xmid_min) & (ndvi_fit_params[:, :, 0] <= xmid_max),
-    ndvi_fit_params[:, :, 0],
-    np.nan
-)
-
-ndvi_fit_params[:, :, 2] = np.where(
-    (ndvi_fit_params[:, :, 2] >= xmid_min) & (ndvi_fit_params[:, :, 2] <= xmid_max),
-    ndvi_fit_params[:, :, 2],
-    np.nan
-)
-
-ndvi_fit_params[:, :, 1] = np.where(
-    (ndvi_fit_params[:, :, 1] >= scal_min) & (ndvi_fit_params[:, :, 1] <= scal_max),
-    ndvi_fit_params[:, :, 1],
-    np.nan
-)
-
-ndvi_fit_params[:, :, 3] = np.where(
-    (ndvi_fit_params[:, :, 3] >= scal_min) & (ndvi_fit_params[:, :, 3] <= scal_max),
-    ndvi_fit_params[:, :, 3],
-    np.nan
-)
-
-ndvi_fit_params[:, :, 4] = np.where(
-    (ndvi_fit_params[:, :, 4] >= bias_min) & (ndvi_fit_params[:, :, 4] <= bias_max),
-    ndvi_fit_params[:, :, 4],
-    np.nan
-)
-
-ndvi_fit_params[:, :, 5] = np.where(
-    (ndvi_fit_params[:, :, 5] >= scale_min) & (ndvi_fit_params[:, :, 5] <= scale_max),
-    ndvi_fit_params[:, :, 5],
-    np.nan
-)
-
-
-# In[7]:
-
-
-# Compute basic statistics
-for i, param in enumerate(param_names):
-    param_data = ndvi_fit_params[:, :, i]
-    valid_values = param_data[~np.isnan(param_data)]  # Exclude NaNs
-
-    print(f"\n {param}:")
-    print(f"  Min:  {np.nanmin(param_data):.2f}")
-    print(f"  Max:  {np.nanmax(param_data):.2f}")
-    print(f"  Mean: {np.nanmean(param_data):.2f}")
-    print(f"  Median:  {np.nanmedian(param_data):.2f}")
-    print(f"  Std:  {np.nanstd(param_data):.2f}")
-
-
-# In[8]:
-
-
-# Save cleaned data
-cleaned_output_path = "/work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz"
-np.savez_compressed(cleaned_output_path, ndvi_fit_params=ndvi_fit_params)
-
-print(f"Saved cleaned NDVI parameters to {cleaned_output_path}")
-
-
-# In[9]:
-
-
-import matplotlib.pyplot as plt
-
-# Define function to plot parameter maps
-def plot_param(param_idx, title, cmap="viridis"):
+def plot_param_map(ndvi_fit_params: np.ndarray, param_idx: int, title: str, cmap: str = "viridis") -> Path:
     param_data = ndvi_fit_params[:, :, param_idx]
-    
-    plt.figure(figsize=(10, 6))
-    plt.imshow(param_data, cmap=cmap, interpolation="nearest")
-    plt.colorbar(label=title)
-    plt.title(title)
-    plt.show()
 
-# Plot green-up timing
-plot_param(0, "Spring Green-Up (xmidSNDVI)", cmap="coolwarm")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    img = ax.imshow(param_data, cmap=cmap, interpolation="nearest")
+    fig.colorbar(img, label=title, ax=ax)
+    ax.set_title(title)
 
-# Plot autumn senescence timing
-plot_param(2, "Autumn Dry-Down (xmidANDVI)", cmap="coolwarm")
-
-
-# In[10]:
+    output_path = MAP_DIR / f"{PARAM_NAMES[param_idx]}-map.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved parameter map to {output_path}")
+    return output_path
 
 
-lat_means = np.nanmean(ndvi_fit_params, axis=1)  # Average over longitudes
+def plot_latitudinal_profile(ndvi_fit_params: np.ndarray) -> Path:
+    lat_means = np.nanmean(ndvi_fit_params, axis=1)
 
-plt.figure(figsize=(10, 5))
-plt.plot(lat_means[:, 0], label="Spring Green-Up (xmidSNDVI)", color="green")
-plt.plot(lat_means[:, 2], label="Autumn Dry-Down (xmidANDVI)", color="orange")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(lat_means[:, 0], label="Spring Green-Up (xmidSNDVI)", color="green")
+    ax.plot(lat_means[:, 2], label="Autumn Dry-Down (xmidANDVI)", color="orange")
+    ax.set_xlabel("Latitude Index")
+    ax.set_ylabel("Day of Year")
+    ax.set_title("NDVI Phenology Across Latitude")
+    ax.legend()
+    ax.grid(True)
 
-plt.xlabel("Latitude Index")
-plt.ylabel("Day of Year")
-plt.title("NDVI Phenology Across Latitude")
-plt.legend()
-plt.grid(True)
-plt.show()
-
-
-# In[11]:
-
-
-# Plot green-up timing
-plot_param(6, "R-squared", cmap="coolwarm")
-
-# Plot autumn senescence timing
-plot_param(7, "sqrt(coVar)", cmap="coolwarm")
+    output_path = PROFILE_DIR / "latitudinal-profile.png"
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved latitudinal profile to {output_path}")
+    return output_path
 
 
-# In[ ]:
+def main() -> None:
+    ndvi_fit_params = load_parameters()
+    summarise_parameters(ndvi_fit_params, "raw values")
+
+    ndvi_fit_params = apply_constraints(ndvi_fit_params)
+    summarise_parameters(ndvi_fit_params, "after filtering")
+
+    np.savez_compressed(CLEANED_OUTPUT_PATH, ndvi_fit_params=ndvi_fit_params)
+    print(f"Saved cleaned NDVI parameters to {CLEANED_OUTPUT_PATH}")
+
+    plot_param_map(ndvi_fit_params, 0, "Spring Green-Up (xmidSNDVI)", cmap="coolwarm")
+    plot_param_map(ndvi_fit_params, 2, "Autumn Dry-Down (xmidANDVI)", cmap="coolwarm")
+    plot_latitudinal_profile(ndvi_fit_params)
 
 
-
-
+if __name__ == "__main__":
+    main()
