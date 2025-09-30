@@ -18,6 +18,9 @@ remaining portable with the codebase.
 
 - The download helper `src/download_NDVI.sh` ensures `raw/NDVI/` exists and only
   fetches missing MODIS scenes, preventing duplicate transfers.
+- Use `src/download_insolation.py` to mirror the NOAA insolation forcing
+  directory into `raw/insolation/`; it creates the folder on demand and skips
+  files that are already present.
 - Processing scripts resolve data paths relative to the repository root so the
   workflows run consistently on any machine that has the repository checked out
   alongside this directory.
