@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import glob
 import re
+from contextlib import contextmanager
 from pathlib import Path
 
 import h5py
@@ -38,10 +39,21 @@ def extract_date(filename: Path) -> tuple[int | None, int | None]:
     return None, None
 
 
+@contextmanager
+def open_sd(path: Path):
+    """Provide a context manager for ``pyhdf`` SD objects."""
+
+    hdf = SD(str(path), SDC.READ)
+    try:
+        yield hdf
+    finally:
+        hdf.end()
+
+
 def determine_shape(example_file: Path) -> tuple[int, int]:
     """Inspect the first file to determine the spatial dimensions."""
 
-    with SD(str(example_file), SDC.READ) as hdf:
+    with open_sd(example_file) as hdf:
         shape = hdf.select("CMG 0.05 Deg 16 days NDVI")[:].shape
     print(f"Detected NDVI grid shape {shape} from {example_file.name}")
     return shape
@@ -84,7 +96,7 @@ def build_stack(hdf_files: list[Path], ndvi_shape: tuple[int, int]) -> None:
 
             dset_metadata[i] = (year, doy)
 
-            with SD(str(file_path), SDC.READ) as hdf:
+            with open_sd(file_path) as hdf:
                 try:
                     ndvi_data = hdf.select("CMG 0.05 Deg 16 days NDVI")[:]
                     ndvi_reliability = hdf.select(
