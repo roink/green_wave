@@ -7,6 +7,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data" / "intermediate"

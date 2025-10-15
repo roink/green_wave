@@ -14,6 +14,9 @@ import numpy as np
 from tqdm import tqdm
 
 from process_priority import lower_process_priority
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"

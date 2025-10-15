@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/setup.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== RUN START (setup.sh) ==="
+
+finish() {
+  echo "=== RUN FINISH (setup.sh) ==="
+}
+
+trap finish EXIT
+
 PYTHON_BIN=${PYTHON_BIN:-python3}
 VENV_DIR="venv"
 

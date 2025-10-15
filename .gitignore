@@ -13,7 +13,6 @@
 *.docx
 
 # Ignore temporary and cache files
-*.log
 *.tmp
 *.bak
 *.swp
@@ -31,23 +30,14 @@ build/
 # Ignore Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
-# Data directories (track structure with .gitkeep files only)
-/data/*
-!/data/
-!/data/.gitkeep
-!/data/README.md
-/data/raw/*
-!/data/raw/
-!/data/raw/.gitkeep
-/data/intermediate/*
-!/data/intermediate/
-!/data/intermediate/.gitkeep
-/data/finished/*
-!/data/finished/
-!/data/finished/.gitkeep
+# Data directories (track structure with .gitkeep/README files only)
+data/*
+!data/
+!data/**/.gitkeep
+!data/**/README.md
 
-# Figure directory (track structure with .gitkeep files only)
-/figure/*
-!/figure/
-!/figure/.gitkeep
-!/figure/README.md
+# Figure directories (track structure with .gitkeep/README files only)
+figure/*
+!figure/
+!figure/**/.gitkeep
+!figure/**/README.md

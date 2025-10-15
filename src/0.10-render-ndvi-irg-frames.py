@@ -13,7 +13,9 @@ from typing import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
+from logging_setup import initialize_script_logging
 
+initialize_script_logging(__file__)
 
 def double_logistic(
     t: np.ndarray | float,
