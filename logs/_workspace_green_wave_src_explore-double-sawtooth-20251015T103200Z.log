@@ -1,0 +1,37 @@
+# Green Wave execution log
+{
+  "data_snapshot": {
+    "finished": {
+      "files": 1,
+      "samples": [
+        "data/finished/.gitkeep"
+      ],
+      "size_mb": 0.0
+    },
+    "intermediate": {
+      "files": 1,
+      "samples": [
+        "data/intermediate/.gitkeep"
+      ],
+      "size_mb": 0.0
+    },
+    "raw": {
+      "files": 1,
+      "samples": [
+        "data/raw/.gitkeep"
+      ],
+      "size_mb": 0.0
+    }
+  },
+  "script": "/workspace/green_wave/src/explore-double-sawtooth.py",
+  "timestamp_utc": "20251015T103200Z",
+  "working_directory": "/workspace/green_wave"
+}
+
+Saved base sawtooth figure -> figure/explore-double-sawtooth/sawtooth.png
+Saved centered sawtooth figure -> figure/explore-double-sawtooth/centered_120_1.0.png
+Saved centered sawtooth figure -> figure/explore-double-sawtooth/centered_120_2.0.png
+Saved scaled comparison figure -> figure/explore-double-sawtooth/scaled_comparison.png
+Crossing windows between increase/decrease segments: 198.00 to 344.00 (mod 365)
+Saved double sawtooth figure -> figure/explore-double-sawtooth/double_sawtooth.png
+Sawtooth exploration complete.

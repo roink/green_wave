@@ -14,6 +14,10 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 import numpy as np
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 
 def double_logistic(
     t: np.ndarray | float,

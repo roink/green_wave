@@ -22,6 +22,10 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 import shutil
 
+from green_wave_logging import configure_logging as _configure_run_logging
+
+_configure_run_logging(__file__)
+
 # Default configuration for the orbital forcing archive.
 DEFAULT_BASE_URL = (
     "https://www.ncei.noaa.gov/pub/data/paleo/climate_forcing/"

@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pyhdf.SD import SD, SDC
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FILE_PATH = (

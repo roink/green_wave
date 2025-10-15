@@ -12,6 +12,10 @@ from scipy.interpolate import interp1d
 
 from ndvi_analysis_utils import ensure_script_figure_dir, _save_figure
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSOLATION_PATH = PROJECT_ROOT / "data" / "insolation" / "orbit91"

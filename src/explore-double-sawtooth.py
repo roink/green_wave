@@ -9,6 +9,10 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 import numpy as np
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 SCRIPT_NAME = Path(__file__).stem
 FIGURE_ROOT = Path("figure") / SCRIPT_NAME
 FIGURE_ROOT.mkdir(parents=True, exist_ok=True)

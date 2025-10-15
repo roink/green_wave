@@ -15,6 +15,10 @@ from tqdm import tqdm
 
 from process_priority import lower_process_priority
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HDF5_FILE = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"
 FIGURE_ROOT = PROJECT_ROOT / "figure" / Path(__file__).stem

@@ -18,6 +18,10 @@ from tqdm.auto import tqdm
 
 from process_priority import lower_process_priority
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 # ---------------------------------------------------------------------------
 # Paths and constants
 # ---------------------------------------------------------------------------

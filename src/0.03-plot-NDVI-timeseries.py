@@ -15,6 +15,10 @@ from ndvi_analysis_utils import (
     _save_figure,
 )
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 SCRIPT_STEM, FIGURE_DIR = ensure_script_figure_dir(__file__)
 
 

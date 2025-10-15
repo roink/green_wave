@@ -10,6 +10,10 @@ import numpy as np
 
 from ndvi_analysis_utils import get_ndvi_timeseries, process_ndvi
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 SINGLE_LOCATION_DIR = FIGURE_ROOT / "locations"
 COMPARISON_DIR = FIGURE_ROOT / "yearly-comparison"

@@ -13,6 +13,10 @@ import numpy as np
 from pyhdf.SD import SD, SDC
 from tqdm import tqdm
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "raw" / "NDVI"
 OUTPUT_PATH = PROJECT_ROOT / "data" / "intermediate" / "ndvi_stack_optimized.h5"

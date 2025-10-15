@@ -8,6 +8,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from green_wave_logging import configure_logging
+
+configure_logging(__file__)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = PROJECT_ROOT / "data" / "intermediate"
 FILE_PATH = DATA_ROOT / "ndvi_fit_params.npz"
