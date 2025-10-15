@@ -1,0 +1,8 @@
+=== RUN START (0.051-fit-double-logistic-to-time-series) ===
+Nearest pixel index: row=600, col=3920
+Saved preprocessing figure to /work/pschluet/green_wave/figure/0.051-fit-double-logistic-to-time-series/preprocessing/ndvi-preprocessing-60p0N-16p0E.png
+Nearest pixel index: row=600, col=3920
+Saved single-year fit to /work/pschluet/green_wave/figure/0.051-fit-double-logistic-to-time-series/fit-single-year/double-logistic-60p0N-16p0E-2005.png
+Nearest pixel index: row=600, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.051-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-60p0N-16p0E-2000-2024.png
+=== RUN FINISH (0.051-fit-double-logistic-to-time-series) ===

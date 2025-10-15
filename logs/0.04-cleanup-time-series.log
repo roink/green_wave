@@ -1,0 +1,10 @@
+=== RUN START (0.04-cleanup-time-series) ===
+Nearest pixel index: row=1000, col=3920
+Saved preprocessing figure to /work/pschluet/green_wave/figure/0.04-cleanup-time-series/locations/ndvi-preprocessing-40p0N-16p0E.png
+Nearest pixel index: row=800, col=3920
+Saved preprocessing figure to /work/pschluet/green_wave/figure/0.04-cleanup-time-series/locations/ndvi-preprocessing-50p0N-16p0E.png
+Nearest pixel index: row=600, col=3920
+Saved preprocessing figure to /work/pschluet/green_wave/figure/0.04-cleanup-time-series/locations/ndvi-preprocessing-60p0N-16p0E.png
+Nearest pixel index: row=600, col=3920
+Saved yearly comparison figure to /work/pschluet/green_wave/figure/0.04-cleanup-time-series/yearly-comparison/ndvi-comparison-60p0N-16p0E-2000-2024.png
+=== RUN FINISH (0.04-cleanup-time-series) ===

@@ -1,0 +1,28 @@
+=== RUN START (0.05-fit-double-logistic-to-time-series) ===
+Nearest pixel index: row=600, col=3920
+Saved preprocessing figure to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/preprocessing/ndvi-preprocessing-60p0N-16p0E.png
+Nearest pixel index: row=600, col=3920
+Saved single-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-single-year/double-logistic-60p0N-16p0E-2005.png
+Nearest pixel index: row=600, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-60p0N-16p0E-2000-2024.png
+Nearest pixel index: row=800, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-50p0N-16p0E-2000-2024.png
+Nearest pixel index: row=1000, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-40p0N-16p0E-2000-2024.png
+Nearest pixel index: row=1200, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-30p0N-16p0E-2000-2024.png
+Nearest pixel index: row=1400, col=3920
+Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-20p0N-16p0E-2000-2024.png
+Nearest pixel index: row=600, col=3920
+Traceback (most recent call last):
+  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 294, in <module>
+    main()
+    ~~~~^^
+  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 290, in main
+    fit_seasonal_curve_transformed(lat, 16.0, 2000, 2024)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 223, in fit_seasonal_curve_transformed
+    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+                          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: process_ndvi() takes 1 positional argument but 2 were given
+=== RUN FINISH (0.05-fit-double-logistic-to-time-series) ===

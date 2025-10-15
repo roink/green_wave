@@ -1,0 +1,21 @@
+=== RUN START (0.052-compare-seasonal-curve-fits) ===
+Double logistic parameters:
+   xmidS:  101.535
+   scalS:    9.604
+   xmidA:  321.957
+   scalA:   12.536
+    bias: 3533.344
+   scale: 4237.677
+Saved double logistic figure -> figure/0.052-compare-seasonal-curve-fits/double_logistic_fit.png
+Tanh-sine parameters:
+      phase:  123.424
+       bias: 6082.442
+      scale: 2351.996
+  sharpness:    1.008
+Saved tanh-sine figure -> figure/0.052-compare-seasonal-curve-fits/tanh_sine_fit.png
+Sigmoid-sine recovered parameters:
+  amplitude: true=2.50, fitted=2.499
+  steepness: true=4.00, fitted=4.019
+Saved sigmoid-sine demonstration figure -> figure/0.052-compare-seasonal-curve-fits/sigmoid_sine_demo.png
+All figures generated successfully.
+=== RUN FINISH (0.052-compare-seasonal-curve-fits) ===

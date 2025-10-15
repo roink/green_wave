@@ -1,0 +1,31 @@
+=== RUN START (0.07-explore-fitparams) ===
+Loaded NDVI fit parameters with shape (878, 1218, 8) from /work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz
+
+Parameter summary: raw values
+  xmidSNDVI -> min 0.00, max 365.00, mean 124.35, median 103.83, std 69.31
+  scalSNDVI -> min 0.00, max 4318616064.00, mean 26539.54, median 17.61, std 6860185.00
+  xmidANDVI -> min 0.00, max 365.00, mean 246.26, median 289.65, std 84.30
+  scalANDVI -> min 0.00, max 9570275328.00, mean 53002.72, median 19.78, std 12572334.00
+  bias -> min -49396.80, max 30294.93, mean 1753.23, median 1204.33, std 1966.30
+  scale -> min 0.00, max 801026496.00, mean 80322.91, median 6532.36, std 1187144.62
+Applied bounds 0-365 to xmidSNDVI: kept 606650 / 606650 values
+Applied bounds 0-365 to xmidANDVI: kept 606650 / 606650 values
+Applied bounds 1-100 to scalSNDVI: kept 601726 / 606650 values
+Applied bounds 1-100 to scalANDVI: kept 599752 / 606650 values
+Applied bounds 0-10000 to bias: kept 503566 / 606650 values
+Applied bounds 0-10000 to scale: kept 523615 / 606650 values
+
+Parameter summary: after filtering
+  xmidSNDVI -> min 0.00, max 365.00, mean 124.35, median 103.83, std 69.31
+  scalSNDVI -> min 1.00, max 100.00, mean 20.23, median 17.57, std 11.01
+  xmidANDVI -> min 0.00, max 365.00, mean 246.26, median 289.65, std 84.30
+  scalANDVI -> min 1.00, max 99.99, mean 24.79, median 19.67, std 17.22
+  bias -> min 0.00, max 9279.63, mean 2213.89, median 1518.92, std 1832.71
+  scale -> min 0.00, max 10000.00, mean 5117.72, median 6055.23, std 2576.86
+Saved cleaned NDVI parameters to /work/pschluet/green_wave/data/intermediate/ndvi_fit_params_cleaned.npz
+Saved parameter map to /work/pschluet/green_wave/figure/0.07-explore-fitparams/maps/xmidSNDVI-map.png
+Saved parameter map to /work/pschluet/green_wave/figure/0.07-explore-fitparams/maps/xmidANDVI-map.png
+/work/pschluet/green_wave/src/0.07-explore-fitparams.py:90: RuntimeWarning: Mean of empty slice
+  lat_means = np.nanmean(ndvi_fit_params, axis=1)
+Saved latitudinal profile to /work/pschluet/green_wave/figure/0.07-explore-fitparams/profiles/latitudinal-profile.png
+=== RUN FINISH (0.07-explore-fitparams) ===

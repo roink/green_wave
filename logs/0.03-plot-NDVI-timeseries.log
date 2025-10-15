@@ -1,0 +1,8 @@
+=== RUN START (0.03-plot-NDVI-timeseries) ===
+Nearest pixel index: row=1000, col=3920
+Saved figure to /work/pschluet/green_wave/figure/0.03-plot-NDVI-timeseries/0.03-plot-NDVI-timeseries__lat40p0_lon16p0_timeseries.png
+Nearest pixel index: row=800, col=3920
+Saved figure to /work/pschluet/green_wave/figure/0.03-plot-NDVI-timeseries/0.03-plot-NDVI-timeseries__lat50p0_lon16p0_timeseries.png
+Nearest pixel index: row=600, col=3920
+Saved figure to /work/pschluet/green_wave/figure/0.03-plot-NDVI-timeseries/0.03-plot-NDVI-timeseries__lat60p0_lon16p0_timeseries.png
+=== RUN FINISH (0.03-plot-NDVI-timeseries) ===
