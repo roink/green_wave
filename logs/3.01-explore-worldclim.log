@@ -1,0 +1,4 @@
+=== RUN START (3.01-explore-worldclim) ===
+WorldClim directory not found: /workspace/green_wave/data/raw/worldclim
+No rasters processed.
+=== RUN FINISH (3.01-explore-worldclim) ===
