@@ -41,3 +41,15 @@ figure/*
 !figure/
 !figure/**/.gitkeep
 !figure/**/README.md
+
+# Figures directory (plural)
+figures/*
+!figures/
+!figures/**/.gitkeep
+!figures/**/README.md
+
+# Notebook directories (track structure with .gitkeep/README files only)
+notebooks/*
+!notebooks/
+!notebooks/**/.gitkeep
+!notebooks/**/README.md
