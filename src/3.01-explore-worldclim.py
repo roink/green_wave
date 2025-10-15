@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Iterable
 
@@ -75,11 +76,15 @@ def decode_metadata(path: Path) -> tuple[str, str, str, str]:
     """Return (code, label, units, category) derived from the filename."""
 
     stem = path.stem
-    digits = "".join(ch for ch in stem if ch.isdigit())
-    try:
-        number = int(digits)
-    except ValueError:
-        return stem, stem, "unknown", "unknown"
+    match = re.search(r"(\d{1,2})$", stem)
+    if match:
+        number = int(match.group(1))
+    else:
+        digits = "".join(ch for ch in stem if ch.isdigit())
+        try:
+            number = int(digits)
+        except ValueError:
+            return stem, stem, "unknown", "unknown"
 
     if number in BIO_LOOKUP:
         return BIO_LOOKUP[number]
@@ -140,7 +145,11 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
         data = dataset.read(1, masked=True)
         preview = compute_preview(dataset)
         normalized_units = units.strip().lower() if isinstance(units, str) else "unknown"
-        value_label = label if normalized_units == "unknown" or not units else f"{label} ({units})"
+        unit_suffix = ""
+        if units and normalized_units != "unknown":
+            unit_suffix = f" ({units})"
+        value_label = f"{label}{unit_suffix}" if label else units or "Value"
+        colorbar_label = units if units and normalized_units != "unknown" else label
 
         nodata_count = int(np.sum(data.mask)) if data.mask is not np.ma.nomask else 0
         valid = data.compressed().astype("float64")
@@ -225,9 +234,11 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             )
             ax.set_xlabel("Longitude (°)")
             ax.set_ylabel("Latitude (°)")
-            ax.set_title(f"{code} — {label} ({units})")
+            title_unit_suffix = f" ({units})" if units and normalized_units != "unknown" else ""
+            ax.set_title(f"{code} — {label}{title_unit_suffix}")
             cbar = fig.colorbar(im, ax=ax, shrink=0.8)
-            cbar.set_label(value_label)
+            if colorbar_label:
+                cbar.set_label(colorbar_label)
             ax.text(
                 0.01,
                 0.01,
@@ -253,7 +264,7 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             centers = (edges[:-1] + edges[1:]) / 2
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.step(centers, counts, where="mid", color="tab:blue")
-            ax.set_xlabel(value_label)
+            ax.set_xlabel(value_label if value_label else colorbar_label or code)
             ax.set_ylabel("Pixel count")
             ax.set_title(f"{code} — {label}")
             ax.grid(True, linestyle="--", alpha=0.5)
