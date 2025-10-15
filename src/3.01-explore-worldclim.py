@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import argparse
-import json
 import math
 from pathlib import Path
 from typing import Iterable
@@ -27,8 +25,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_STEM = Path(__file__).stem
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data" / "raw" / "worldclim"
 DEFAULT_FIGURE_DIR = PROJECT_ROOT / "figure" / SCRIPT_STEM
-SUMMARY_JSON_PATH = PROJECT_ROOT / "logs" / f"{SCRIPT_STEM}.summary.json"
-
 MAX_PREVIEW_DIMENSION = 800
 HISTOGRAM_SAMPLE_CAP = 100_000
 
@@ -143,6 +139,8 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
         code, label, units, category = decode_metadata(path)
         data = dataset.read(1, masked=True)
         preview = compute_preview(dataset)
+        normalized_units = units.strip().lower() if isinstance(units, str) else "unknown"
+        value_label = label if normalized_units == "unknown" or not units else f"{label} ({units})"
 
         nodata_count = int(np.sum(data.mask)) if data.mask is not np.ma.nomask else 0
         valid = data.compressed().astype("float64")
@@ -229,7 +227,7 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             ax.set_ylabel("Latitude (°)")
             ax.set_title(f"{code} — {label} ({units})")
             cbar = fig.colorbar(im, ax=ax, shrink=0.8)
-            cbar.set_label(units)
+            cbar.set_label(value_label)
             ax.text(
                 0.01,
                 0.01,
@@ -239,7 +237,7 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
                 color="white",
                 bbox=dict(boxstyle="round", facecolor="black", alpha=0.5),
             )
-            preview_path = figure_dir / f"{SCRIPT_STEM}__{code.lower()}-preview.png"
+            preview_path = figure_dir / f"{code}-preview.png"
             fig.tight_layout()
             fig.savefig(preview_path, dpi=200)
             plt.close(fig)
@@ -255,11 +253,11 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             centers = (edges[:-1] + edges[1:]) / 2
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.step(centers, counts, where="mid", color="tab:blue")
-            ax.set_xlabel(units)
+            ax.set_xlabel(value_label)
             ax.set_ylabel("Pixel count")
             ax.set_title(f"{code} — {label}")
             ax.grid(True, linestyle="--", alpha=0.5)
-            hist_path = figure_dir / f"{SCRIPT_STEM}__{code.lower()}-histogram.png"
+            hist_path = figure_dir / f"{code}-histogram.png"
             fig.tight_layout()
             fig.savefig(hist_path, dpi=200)
             plt.close(fig)
@@ -315,45 +313,9 @@ def log_metadata_table(summaries: list[dict[str, object]]) -> None:
             f"{file_stem:<35} {size_str:>12} {res_str:>16} {summary['band_count']:>7}"
             f" {min_str:>10} {mean_str:>10} {max_str:>10}"
         )
-
-
-def write_summary_json(summaries: list[dict[str, object]], json_path: Path, figure_dir: Path, data_dir: Path) -> None:
-    """Persist aggregated metadata for later reference."""
-
-    payload = {
-        "script": SCRIPT_STEM,
-        "data_directory": str(data_dir),
-        "figure_directory": str(figure_dir),
-        "raster_count": len(summaries),
-        "rasters": summaries,
-    }
-    json_path.parent.mkdir(parents=True, exist_ok=True)
-    json_path.write_text(json.dumps(payload, indent=2))
-    print(f"Saved summary JSON to {json_path}")
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Summarise WorldClim GeoTIFF rasters, log metadata, and create preview figures."
-        )
-    )
-    parser.add_argument(
-        "--data-dir",
-        type=Path,
-        default=DEFAULT_DATA_DIR,
-        help="Directory containing WorldClim .tif files.",
-    )
-    parser.add_argument(
-        "--figure-dir",
-        type=Path,
-        default=DEFAULT_FIGURE_DIR,
-        help="Destination directory for generated figures.",
-    )
-
-    args = parser.parse_args()
-    data_dir = args.data_dir.expanduser().resolve()
-    figure_dir = args.figure_dir.expanduser().resolve()
+    data_dir = DEFAULT_DATA_DIR
+    figure_dir = DEFAULT_FIGURE_DIR
 
     try:
         files = discover_worldclim_files(data_dir)
@@ -368,7 +330,6 @@ def main() -> None:
         summaries.append(summary)
 
     log_metadata_table(summaries)
-    write_summary_json(summaries, SUMMARY_JSON_PATH, figure_dir, data_dir)
     print("Inspection complete.")
 
 
