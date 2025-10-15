@@ -1,4 +1,350 @@
 === RUN START (3.01-explore-worldclim) ===
-WorldClim directory not found: /workspace/green_wave/data/raw/worldclim
-No rasters processed.
+Discovered 19 raster files in /work/pschluet/green_wave/data/raw/worldclim
+
+File: wc2.1_5m_bio_1.tif
+  Variable: BIO2151 — wc2.1_5m_bio_1
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-54.74, mean=-4.23, max=31.05
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -51.64 – 27.90 unknown
+      Values (unknown): min=-54.74 mean=-4.23 max=31.05
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2151-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2151-histogram.png
+
+File: wc2.1_5m_bio_10.tif
+  Variable: BIO21510 — wc2.1_5m_bio_10
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-37.79, mean=7.08, max=38.41
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -33.97 – 33.78 unknown
+      Values (unknown): min=-37.79 mean=7.08 max=38.41
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21510-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21510-histogram.png
+
+File: wc2.1_5m_bio_11.tif
+  Variable: BIO21511 — wc2.1_5m_bio_11
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-66.35, mean=-14.15, max=29.16
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -61.94 – 25.93 unknown
+      Values (unknown): min=-66.35 mean=-14.15 max=29.16
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21511-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21511-histogram.png
+
+File: wc2.1_5m_bio_12.tif
+  Variable: BIO21512 — wc2.1_5m_bio_12
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=541.80, max=11191.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 4.00 – 2588.00 unknown
+      Values (unknown): min=0.00 mean=541.80 max=11191.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21512-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21512-histogram.png
+
+File: wc2.1_5m_bio_13.tif
+  Variable: BIO21513 — wc2.1_5m_bio_13
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=92.48, max=2578.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 2.00 – 381.00 unknown
+      Values (unknown): min=0.00 mean=92.48 max=2578.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21513-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21513-histogram.png
+
+File: wc2.1_5m_bio_14.tif
+  Variable: BIO21514 — wc2.1_5m_bio_14
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=14.95, max=501.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 0.00 – 103.00 unknown
+      Values (unknown): min=0.00 mean=14.95 max=501.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21514-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21514-histogram.png
+
+File: wc2.1_5m_bio_15.tif
+  Variable: BIO21515 — wc2.1_5m_bio_15
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=75.18, max=229.38
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 15.01 – 187.77 unknown
+      Values (unknown): min=0.00 mean=75.18 max=229.38
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21515-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21515-histogram.png
+
+File: wc2.1_5m_bio_16.tif
+  Variable: BIO21516 — wc2.1_5m_bio_16
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=238.83, max=5757.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 3.00 – 1030.00 unknown
+      Values (unknown): min=0.00 mean=238.83 max=5757.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21516-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21516-histogram.png
+
+File: wc2.1_5m_bio_17.tif
+  Variable: BIO21517 — wc2.1_5m_bio_17
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=54.03, max=1543.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 0.00 – 348.00 unknown
+      Values (unknown): min=0.00 mean=54.03 max=1543.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21517-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21517-histogram.png
+
+File: wc2.1_5m_bio_18.tif
+  Variable: BIO21518 — wc2.1_5m_bio_18
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=154.67, max=5297.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 0.00 – 692.00 unknown
+      Values (unknown): min=0.00 mean=154.67 max=5297.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21518-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21518-histogram.png
+
+File: wc2.1_5m_bio_19.tif
+  Variable: BIO21519 — wc2.1_5m_bio_19
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=106.72, max=4879.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 0.00 – 815.00 unknown
+      Values (unknown): min=0.00 mean=106.72 max=4879.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21519-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio21519-histogram.png
+
+File: wc2.1_5m_bio_2.tif
+  Variable: BIO2152 — wc2.1_5m_bio_2
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=1.00, mean=10.01, max=21.73
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 5.11 – 16.43 unknown
+      Values (unknown): min=1.00 mean=10.01 max=21.73
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2152-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2152-histogram.png
+
+File: wc2.1_5m_bio_3.tif
+  Variable: BIO2153 — wc2.1_5m_bio_3
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=9.06, mean=34.42, max=100.00
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 14.02 – 84.27 unknown
+      Values (unknown): min=9.06 mean=34.42 max=100.00
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2153-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2153-histogram.png
+
+File: wc2.1_5m_bio_4.tif
+  Variable: BIO2154 — wc2.1_5m_bio_4
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=0.00, mean=885.54, max=2373.26
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 42.09 – 1870.50 unknown
+      Values (unknown): min=0.00 mean=885.54 max=2373.26
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2154-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2154-histogram.png
+
+File: wc2.1_5m_bio_5.tif
+  Variable: BIO2155 — wc2.1_5m_bio_5
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-29.70, mean=13.86, max=48.26
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -26.20 – 42.21 unknown
+      Values (unknown): min=-29.70 mean=13.86 max=48.26
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2155-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2155-histogram.png
+
+File: wc2.1_5m_bio_6.tif
+  Variable: BIO2156 — wc2.1_5m_bio_6
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-72.50, mean=-20.08, max=26.30
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -67.25 – 21.16 unknown
+      Values (unknown): min=-72.50 mean=-20.08 max=26.30
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2156-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2156-histogram.png
+
+File: wc2.1_5m_bio_7.tif
+  Variable: BIO2157 — wc2.1_5m_bio_7
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=1.00, mean=33.95, max=72.56
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: 10.56 – 61.06 unknown
+      Values (unknown): min=1.00 mean=33.95 max=72.56
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2157-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2157-histogram.png
+
+File: wc2.1_5m_bio_8.tif
+  Variable: BIO2158 — wc2.1_5m_bio_8
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-66.31, mean=-1.12, max=37.92
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -61.72 – 30.92 unknown
+      Values (unknown): min=-66.31 mean=-1.12 max=37.92
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2158-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2158-histogram.png
+
+File: wc2.1_5m_bio_9.tif
+  Variable: BIO2159 — wc2.1_5m_bio_9
+  Driver: GTiff
+  Dimensions (width x height): 4320 x 2160 pixels
+  Resolution: 0.083333° lon x 0.083333° lat
+  Geographic coverage: left=-180.00°, right=180.00°, bottom=-90.00°, top=90.00°
+  Approximate area: 64800.00 square degrees
+  Coordinate reference system: EPSG:4326
+  Band count: 1
+    - Band 1: dtype=float32, nodata=-3.3999999521443642e+38, min=-54.89, mean=-5.56, max=37.61
+      Valid pixels: 3170214 | Nodata pixels: 6160986
+      Scaling note: Temperature values fall within expected °C range.
+      2–98% percentile clip: -42.87 – 29.88 unknown
+      Values (unknown): min=-54.89 mean=-5.56 max=37.61
+      Saved preview to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2159-preview.png
+      Saved histogram to /work/pschluet/green_wave/figure/3.01-explore-worldclim/3.01-explore-worldclim__bio2159-histogram.png
+
+File                                   Size (px)   Resolution (°)   Bands        Min       Mean        Max
+----------------------------------------------------------------------------------------------------------
+wc2.1_5m_bio_1                         4320×2160    0.0833×0.0833       1     -54.74      -4.23      31.05
+wc2.1_5m_bio_10                        4320×2160    0.0833×0.0833       1     -37.79       7.08      38.41
+wc2.1_5m_bio_11                        4320×2160    0.0833×0.0833       1     -66.35     -14.15      29.16
+wc2.1_5m_bio_12                        4320×2160    0.0833×0.0833       1       0.00     541.80   11191.00
+wc2.1_5m_bio_13                        4320×2160    0.0833×0.0833       1       0.00      92.48    2578.00
+wc2.1_5m_bio_14                        4320×2160    0.0833×0.0833       1       0.00      14.95     501.00
+wc2.1_5m_bio_15                        4320×2160    0.0833×0.0833       1       0.00      75.18     229.38
+wc2.1_5m_bio_16                        4320×2160    0.0833×0.0833       1       0.00     238.83    5757.00
+wc2.1_5m_bio_17                        4320×2160    0.0833×0.0833       1       0.00      54.03    1543.00
+wc2.1_5m_bio_18                        4320×2160    0.0833×0.0833       1       0.00     154.67    5297.00
+wc2.1_5m_bio_19                        4320×2160    0.0833×0.0833       1       0.00     106.72    4879.00
+wc2.1_5m_bio_2                         4320×2160    0.0833×0.0833       1       1.00      10.01      21.73
+wc2.1_5m_bio_3                         4320×2160    0.0833×0.0833       1       9.06      34.42     100.00
+wc2.1_5m_bio_4                         4320×2160    0.0833×0.0833       1       0.00     885.54    2373.26
+wc2.1_5m_bio_5                         4320×2160    0.0833×0.0833       1     -29.70      13.86      48.26
+wc2.1_5m_bio_6                         4320×2160    0.0833×0.0833       1     -72.50     -20.08      26.30
+wc2.1_5m_bio_7                         4320×2160    0.0833×0.0833       1       1.00      33.95      72.56
+wc2.1_5m_bio_8                         4320×2160    0.0833×0.0833       1     -66.31      -1.12      37.92
+wc2.1_5m_bio_9                         4320×2160    0.0833×0.0833       1     -54.89      -5.56      37.61
+Saved summary JSON to /work/pschluet/green_wave/logs/3.01-explore-worldclim.summary.json
+Inspection complete.
 === RUN FINISH (3.01-explore-worldclim) ===
