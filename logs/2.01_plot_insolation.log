@@ -1,0 +1,12 @@
+=== RUN START (2.01_plot_insolation) ===
+Loading orbital parameters from /work/pschluet/green_wave/data/raw/insolation/orbit91 …
+Loaded 5001 orbital parameter records.
+Computed June 21 insolation at 65°N for 5000 kyr.
+Mean insolation over this period: 492.77 W/m²
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__june21_65N_timeseries.png
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__june21_65N_clipped.png
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__orbital_eccentricity.png
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__orbital_obliquity.png
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__orbital_solar_longitude.png
+Saved figure to /work/pschluet/green_wave/figure/2.01_plot_insolation/2.01_plot_insolation__daily_insolation_65N_comparison.png
+=== RUN FINISH (2.01_plot_insolation) ===

@@ -1,0 +1,65 @@
+=== RUN START (1.01-fit-double-logistic-wrap) ===
+
+Processing location (60°N, 16°E)
+Nearest pixel index: row=600, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat60p0_lon16p0_timeseries.png
+Nearest pixel index: row=600, col=3920
+Optimized Parameters: {'z1': np.float64(92.98562385447246), 'd1': np.float64(23.271917937749496), 'z2': np.float64(320.11481923139615), 'd2': np.float64(-22.639905537749016), 'bias': np.float64(2021.8624156728945), 'scale': np.float64(5756.200901829325)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat60p0_lon16p0_fit.png
+
+Processing location (50°N, 16°E)
+Nearest pixel index: row=800, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat50p0_lon16p0_timeseries.png
+Nearest pixel index: row=800, col=3920
+Optimized Parameters: {'z1': np.float64(70.65306353791463), 'd1': np.float64(140.47878034584514), 'z2': np.float64(330.1328030570372), 'd2': np.float64(-333.0244880204482), 'bias': np.float64(-8377.840978352766), 'scale': np.float64(24375.00372969634)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat50p0_lon16p0_fit.png
+
+Processing location (61°N, 16°E)
+Nearest pixel index: row=580, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat61p0_lon16p0_timeseries.png
+Nearest pixel index: row=580, col=3920
+Optimized Parameters: {'z1': np.float64(104.2143822783968), 'd1': np.float64(14.169129956954055), 'z2': np.float64(314.13604369777863), 'd2': np.float64(-10.246263071989446), 'bias': np.float64(1605.36337413898), 'scale': np.float64(5791.30626898967)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat61p0_lon16p0_fit.png
+
+Processing location (59°N, 16°E)
+Nearest pixel index: row=620, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat59p0_lon16p0_timeseries.png
+Nearest pixel index: row=620, col=3920
+Optimized Parameters: {'z1': np.float64(85.203343341663), 'd1': np.float64(32.5188223269012), 'z2': np.float64(320.68866856520333), 'd2': np.float64(-23.145435159411075), 'bias': np.float64(2698.1404850572785), 'scale': np.float64(5460.827324412787)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat59p0_lon16p0_fit.png
+
+Processing location (60°N, 15°E)
+Nearest pixel index: row=600, col=3900
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat60p0_lon15p0_timeseries.png
+Nearest pixel index: row=600, col=3900
+Optimized Parameters: {'z1': np.float64(95.02584861696185), 'd1': np.float64(19.988226934007372), 'z2': np.float64(312.58925051763265), 'd2': np.float64(-11.445541505225082), 'bias': np.float64(2497.2327809356925), 'scale': np.float64(5225.357298141593)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat60p0_lon15p0_fit.png
+
+Processing location (40°N, 16°E)
+Nearest pixel index: row=1000, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat40p0_lon16p0_timeseries.png
+Nearest pixel index: row=1000, col=3920
+Optimized Parameters: {'z1': np.float64(97.2528549342356), 'd1': np.float64(20.065580685042423), 'z2': np.float64(246.24022243408504), 'd2': np.float64(-109.27104691592491), 'bias': np.float64(5058.150927516501), 'scale': np.float64(3209.1536001804916)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat40p0_lon16p0_fit.png
+
+Processing location (30°N, 16°E)
+Nearest pixel index: row=1200, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat30p0_lon16p0_timeseries.png
+Nearest pixel index: row=1200, col=3920
+Optimized Parameters: {'z1': np.float64(182.50000309509005), 'd1': np.float64(19.145504926251416), 'z2': np.float64(208.20666399140978), 'd2': np.float64(-255.58049211602048), 'bias': np.float64(1368.789166019216), 'scale': np.float64(8.988418571579986)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat30p0_lon16p0_fit.png
+
+Processing location (20°N, 16°E)
+Nearest pixel index: row=1400, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat20p0_lon16p0_timeseries.png
+Nearest pixel index: row=1400, col=3920
+Optimized Parameters: {'z1': np.float64(37.13447612290101), 'd1': np.float64(89.5681163894964), 'z2': np.float64(167.56549512678276), 'd2': np.float64(-313.9304192251942), 'bias': np.float64(798.9805635716197), 'scale': np.float64(178.19083928453446)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__lat20p0_lon16p0_fit.png
+
+Processing location (-33°N, 27°E)
+Nearest pixel index: row=2460, col=4140
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__latm33p0_lon27p0_timeseries.png
+Nearest pixel index: row=2460, col=4140
+Optimized Parameters: {'z1': np.float64(83.88821054213058), 'd1': np.float64(127.70436330976467), 'z2': np.float64(152.46128039666485), 'd2': np.float64(-79.72037934702088), 'bias': np.float64(4098.334885348902), 'scale': np.float64(2923.8980891677465)}
+Saved figure to /work/pschluet/green_wave/figure/1.01-fit-double-logistic-wrap/1.01-fit-double-logistic-wrap__latm33p0_lon27p0_fit.png
+=== RUN FINISH (1.01-fit-double-logistic-wrap) ===

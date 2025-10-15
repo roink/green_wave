@@ -1,0 +1,16 @@
+=== RUN START (1.02-fit-double-logistic-to_scaled_ndvi) ===
+
+Processing location (60°N, 16°E)
+Nearest pixel index: row=600, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.02-fit-double-logistic-to_scaled_ndvi/1.02-fit-double-logistic-to_scaled_ndvi__lat60p0_lon16p0_scaled_timeseries.png
+Nearest pixel index: row=600, col=3920
+Optimized Parameters: {'z1': np.float64(92.98520965276892), 'd1': np.float64(23.272252245029716), 'z2': np.float64(320.11492530622166), 'd2': np.float64(-22.639854595264268), 'bias': np.float64(0.14422668954973922), 'scale': np.float64(0.8089902618290535)}
+Saved figure to /work/pschluet/green_wave/figure/1.02-fit-double-logistic-to_scaled_ndvi/1.02-fit-double-logistic-to_scaled_ndvi__lat60p0_lon16p0_scaled_fit.png
+
+Processing location (50°N, 16°E)
+Nearest pixel index: row=800, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.02-fit-double-logistic-to_scaled_ndvi/1.02-fit-double-logistic-to_scaled_ndvi__lat50p0_lon16p0_scaled_timeseries.png
+Nearest pixel index: row=800, col=3920
+Optimized Parameters: {'z1': np.float64(70.63730765050786), 'd1': np.float64(147.70818362670744), 'z2': np.float64(330.15136273111034), 'd2': np.float64(-350.0231313960096), 'bias': np.float64(-1.1475875664594106), 'scale': np.float64(3.272390579698872)}
+Saved figure to /work/pschluet/green_wave/figure/1.02-fit-double-logistic-to_scaled_ndvi/1.02-fit-double-logistic-to_scaled_ndvi__lat50p0_lon16p0_scaled_fit.png
+=== RUN FINISH (1.02-fit-double-logistic-to_scaled_ndvi) ===

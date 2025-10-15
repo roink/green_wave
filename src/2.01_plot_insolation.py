@@ -16,7 +16,7 @@ from logging_setup import initialize_script_logging
 initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INSOLATION_PATH = PROJECT_ROOT / "data" / "insolation" / "orbit91"
+INSOLATION_PATH = PROJECT_ROOT / "data" / "raw" / "insolation" / "orbit91"
 SCRIPT_STEM, SCRIPT_FIGURE_DIR = ensure_script_figure_dir(__file__)
 
 

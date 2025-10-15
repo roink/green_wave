@@ -1,0 +1,20 @@
+=== RUN START (1.03-fit-gaussia_to_ndvi) ===
+
+Calculating fit at (60°N, 16°E)
+Nearest pixel index: row=600, col=3920
+Optimized Parameters: {'A': np.float64(11092.988516521045), 'mu': np.float64(207.05977653062598), 'sigma': np.float64(141.73761348341546), 'C': np.float64(-3091.5580161546236), 'R2': np.float64(0.7307583343862729)}
+Nearest pixel index: row=600, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.03-fit-gaussia_to_ndvi/1.03-fit-gaussia_to_ndvi__lat60p0_lon16p0_gaussian_fit.png
+
+Calculating fit at (50°N, 16°E)
+Nearest pixel index: row=800, col=3920
+Optimized Parameters: {'A': np.float64(6923.382473911701), 'mu': np.float64(191.22584989568432), 'sigma': np.float64(138.5314278637495), 'C': np.float64(-557.8748493960736), 'R2': np.float64(0.5219447522844515)}
+Nearest pixel index: row=800, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.03-fit-gaussia_to_ndvi/1.03-fit-gaussia_to_ndvi__lat50p0_lon16p0_gaussian_fit.png
+
+Calculating fit at (30°N, 16°E)
+Nearest pixel index: row=1200, col=3920
+Optimized Parameters: {'A': np.float64(19.798909406333767), 'mu': np.float64(333.7722168007059), 'sigma': np.float64(20.37356648837282), 'C': np.float64(1372.5879365817898), 'R2': np.float64(0.033943612210337926)}
+Nearest pixel index: row=1200, col=3920
+Saved figure to /work/pschluet/green_wave/figure/1.03-fit-gaussia_to_ndvi/1.03-fit-gaussia_to_ndvi__lat30p0_lon16p0_gaussian_fit.png
+=== RUN FINISH (1.03-fit-gaussia_to_ndvi) ===

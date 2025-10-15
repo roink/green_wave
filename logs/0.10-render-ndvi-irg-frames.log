@@ -1,0 +1,53 @@
+=== RUN START (0.10-render-ndvi-irg-frames) ===
+Loaded NDVI fit parameters (878 x 1218 pixels, 6 parameters per pixel).
+Saved NDVI frame for DOY 001 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_001.png
+Saved NDVI frame for DOY 017 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_017.png
+Saved NDVI frame for DOY 033 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_033.png
+Saved NDVI frame for DOY 049 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_049.png
+Saved NDVI frame for DOY 065 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_065.png
+Saved NDVI frame for DOY 081 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_081.png
+Saved NDVI frame for DOY 097 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_097.png
+Saved NDVI frame for DOY 113 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_113.png
+Saved NDVI frame for DOY 129 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_129.png
+Saved NDVI frame for DOY 145 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_145.png
+Saved NDVI frame for DOY 161 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_161.png
+Saved NDVI frame for DOY 177 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_177.png
+Saved NDVI frame for DOY 193 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_193.png
+Saved NDVI frame for DOY 209 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_209.png
+Saved NDVI frame for DOY 225 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_225.png
+Saved NDVI frame for DOY 241 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_241.png
+Saved NDVI frame for DOY 257 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_257.png
+Saved NDVI frame for DOY 273 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_273.png
+Saved NDVI frame for DOY 289 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_289.png
+Saved NDVI frame for DOY 305 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_305.png
+Saved NDVI frame for DOY 321 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_321.png
+Saved NDVI frame for DOY 337 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_337.png
+Saved NDVI frame for DOY 353 -> figure/0.10-render-ndvi-irg-frames/predicted_ndvi/ndvi_353.png
+NDVI frame summary: min=-2199.94, max=9387.88
+Saved IRG frame for DOY 001 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_001.png
+Saved IRG frame for DOY 017 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_017.png
+Saved IRG frame for DOY 033 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_033.png
+Saved IRG frame for DOY 049 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_049.png
+Saved IRG frame for DOY 065 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_065.png
+Saved IRG frame for DOY 081 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_081.png
+Saved IRG frame for DOY 097 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_097.png
+Saved IRG frame for DOY 113 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_113.png
+Saved IRG frame for DOY 129 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_129.png
+Saved IRG frame for DOY 145 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_145.png
+Saved IRG frame for DOY 161 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_161.png
+Saved IRG frame for DOY 177 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_177.png
+Saved IRG frame for DOY 193 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_193.png
+Saved IRG frame for DOY 209 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_209.png
+Saved IRG frame for DOY 225 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_225.png
+Saved IRG frame for DOY 241 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_241.png
+Saved IRG frame for DOY 257 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_257.png
+Saved IRG frame for DOY 273 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_273.png
+Saved IRG frame for DOY 289 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_289.png
+Saved IRG frame for DOY 305 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_305.png
+Saved IRG frame for DOY 321 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_321.png
+Saved IRG frame for DOY 337 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_337.png
+Saved IRG frame for DOY 353 -> figure/0.10-render-ndvi-irg-frames/predicted_irg/irg_353.png
+IRG frame summary: min=0.00, max=0.25
+Saved parameter diagnostic map -> figure/0.10-render-ndvi-irg-frames/spring_inflection_map.png
+All figures written successfully.
+=== RUN FINISH (0.10-render-ndvi-irg-frames) ===

@@ -1,0 +1,6 @@
+=== RUN START (0.083-explore-warped-sine) ===
+Saved warped sine power sweep -> figure/0.083-explore-warped-sine/warped_sine_power.png
+Saved phase modulation grid -> figure/0.083-explore-warped-sine/phase_modulation.png
+Saved sigmoid modulation grid -> figure/0.083-explore-warped-sine/sigmoid_modulation.png
+All warped sine figures generated successfully.
+=== RUN FINISH (0.083-explore-warped-sine) ===
