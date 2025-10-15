@@ -17,6 +17,9 @@ from scipy.stats import linregress
 from tqdm.auto import tqdm
 
 from process_priority import lower_process_priority
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 # ---------------------------------------------------------------------------
 # Paths and constants

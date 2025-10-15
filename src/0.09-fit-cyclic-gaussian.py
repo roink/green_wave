@@ -12,7 +12,9 @@ from scipy.optimize import curve_fit
 from tqdm import tqdm
 
 from ndvi_analysis_utils import process_ndvi
+from logging_setup import initialize_script_logging
 
+initialize_script_logging(__file__)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)

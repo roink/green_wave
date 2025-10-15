@@ -7,6 +7,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 FIGURE_DIR = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 FIGURE_DIR.mkdir(parents=True, exist_ok=True)

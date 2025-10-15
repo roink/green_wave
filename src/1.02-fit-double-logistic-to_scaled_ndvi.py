@@ -17,7 +17,9 @@ from ndvi_analysis_utils import (
     _coordinate_tag,
     _save_figure,
 )
+from logging_setup import initialize_script_logging
 
+initialize_script_logging(__file__)
 
 SCRIPT_STEM, SCRIPT_FIGURE_DIR = ensure_script_figure_dir(__file__)
 

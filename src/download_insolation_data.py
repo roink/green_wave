@@ -21,6 +21,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 import shutil
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 # Default configuration for the orbital forcing archive.
 DEFAULT_BASE_URL = (

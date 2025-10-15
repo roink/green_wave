@@ -12,6 +12,9 @@ import h5py
 import numpy as np
 from pyhdf.SD import SD, SDC
 from tqdm import tqdm
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = PROJECT_ROOT / "data" / "raw" / "NDVI"

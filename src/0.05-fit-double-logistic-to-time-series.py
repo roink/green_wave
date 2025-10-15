@@ -10,6 +10,9 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from ndvi_analysis_utils import get_ndvi_timeseries, process_ndvi
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
 
 FIGURE_ROOT = Path(__file__).resolve().parents[1] / "figure" / Path(__file__).stem
 PREPROCESS_DIR = FIGURE_ROOT / "preprocessing"

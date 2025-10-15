@@ -5,6 +5,12 @@ GREP_OPTIONS=''
 # Define the target directory for raw NDVI files within the project tree
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/download_NDVI.log"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== RUN START (download_NDVI.sh) ==="
 TARGET_DIR="$PROJECT_ROOT/data/raw/NDVI"
 mkdir -p "$TARGET_DIR"
 
@@ -12,6 +18,7 @@ cookiejar=$(mktemp cookies.XXXXXXXXXX)
 netrc=$(mktemp netrc.XXXXXXXXXX)
 chmod 0600 "$cookiejar" "$netrc"
 function finish {
+  echo "=== RUN FINISH (download_NDVI.sh) ==="
   rm -rf "$cookiejar" "$netrc"
 }
 
