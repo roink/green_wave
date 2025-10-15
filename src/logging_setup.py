@@ -22,12 +22,20 @@ class TeeStream:
 
     def write(self, data: str) -> int:
         for stream in self._streams:
-            stream.write(data)
+            try:
+                stream.write(data)
+            except ValueError:
+                # Streams may already be closed during interpreter shutdown.
+                continue
         return len(data)
 
     def flush(self) -> None:
         for stream in self._streams:
-            stream.flush()
+            try:
+                stream.flush()
+            except ValueError:
+                # Ignore already-closed streams when flushing at exit.
+                continue
 
     def isatty(self) -> bool:  # pragma: no cover - passthrough behaviour
         return False
