@@ -14,15 +14,13 @@ Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logisti
 Nearest pixel index: row=1400, col=3920
 Saved multi-year fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-multi-year/double-logistic-20p0N-16p0E-2000-2024.png
 Nearest pixel index: row=600, col=3920
-Traceback (most recent call last):
-  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 294, in <module>
-    main()
-    ~~~~^^
-  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 290, in main
-    fit_seasonal_curve_transformed(lat, 16.0, 2000, 2024)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py", line 223, in fit_seasonal_curve_transformed
-    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
-                          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: process_ndvi() takes 1 positional argument but 2 were given
+Saved transformed fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-transformed/double-logistic-transformed-60p0N-16p0E-2000-2024.png
+Nearest pixel index: row=800, col=3920
+Saved transformed fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-transformed/double-logistic-transformed-50p0N-16p0E-2000-2024.png
+Nearest pixel index: row=1000, col=3920
+Saved transformed fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-transformed/double-logistic-transformed-40p0N-16p0E-2000-2024.png
+Nearest pixel index: row=1200, col=3920
+/work/pschluet/green_wave/src/0.05-fit-double-logistic-to-time-series.py:90: RuntimeWarning: overflow encountered in exp
+  spring = 1 / (1 + np.exp((xmidSNDVI - t) / scalSNDVI))
+Saved transformed fit to /work/pschluet/green_wave/figure/0.05-fit-double-logistic-to-time-series/fit-transformed/double-logistic-transformed-30p0N-16p0E-2000-2024.png
 === RUN FINISH (0.05-fit-double-logistic-to-time-series) ===
