@@ -220,7 +220,9 @@ def fit_seasonal_curve_transformed(
     lat: float, lon: float, start_year: int = 2002, end_year: int = 2024
 ) -> Path:
     dates, ndvi_timeseries = get_ndvi_timeseries(lat, lon)
-    _, _, filtered_ndvi = process_ndvi(dates, ndvi_timeseries)
+    _, _, filtered_ndvi = process_ndvi(
+        ndvi_timeseries, dates=dates, fill_missing_with_winter=True
+    )
 
     mask = np.array([start_year <= date.year <= end_year for date in dates])
     dates = np.array(dates)[mask]
