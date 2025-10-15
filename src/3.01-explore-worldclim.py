@@ -21,7 +21,6 @@ from logging_setup import initialize_script_logging
 
 
 initialize_script_logging(__file__)
-logger = __import__("logging").getLogger(__name__)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -67,11 +66,11 @@ def discover_worldclim_files(data_dir: Path) -> list[Path]:
     if not files:
         raise FileNotFoundError(f"No .tif files discovered in {data_dir}")
 
-    logger.info("Discovered %d raster files in %s", len(files), data_dir)
+    print(f"Discovered {len(files)} raster files in {data_dir}")
     if len(files) != 19:
-        logger.warning(
-            "Expected 19 bioclim rasters but found %d. Check dataset completeness.",
-            len(files),
+        print(
+            "WARNING: Expected 19 bioclim rasters but found "
+            f"{len(files)}. Check dataset completeness."
         )
     return files
 
@@ -160,49 +159,62 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
         scale, scale_note = choose_scale(category, (min_val, mean_val, max_val))
 
         left, bottom, right, top = dataset.bounds
-        logger.info("\n%s — %s", code, label)
-        logger.info("  File: %s", path.name)
-        logger.info("  Driver: GTiff | CRS: %s", dataset.crs or "None")
-        logger.info(
-            "  Dimensions: %d × %d px | Resolution: %.6f° × %.6f°",
-            dataset.width,
-            dataset.height,
-            dataset.res[0],
-            dataset.res[1],
+        print(f"\nFile: {path.name}")
+        print(f"  Variable: {code} — {label}")
+        print(f"  Driver: {dataset.driver}")
+        print(f"  Dimensions (width x height): {dataset.width} x {dataset.height} pixels")
+        print(
+            "  Resolution: "
+            f"{dataset.res[0]:.6f}° lon x {dataset.res[1]:.6f}° lat"
         )
-        logger.info(
-            "  Bounds: left=%.2f°, right=%.2f°, bottom=%.2f°, top=%.2f°",
-            left,
-            right,
-            bottom,
-            top,
+        print(
+            "  Geographic coverage: "
+            f"left={left:.2f}°, right={right:.2f}°, bottom={bottom:.2f}°, top={top:.2f}°"
         )
-        logger.info("  Data type: %s | Band count: %d", dataset.dtypes[0], dataset.count)
-        logger.info("  Nodata: %s | Nodata pixels: %d", dataset.nodatavals[0], nodata_count)
-
-        if min_val is None:
-            logger.warning("  Raster contains no valid data; skipping figures.")
+        width_deg = abs(right - left)
+        height_deg = abs(top - bottom)
+        print(f"  Approximate area: {width_deg * height_deg:.2f} square degrees")
+        print(
+            "  Coordinate reference system: "
+            f"{dataset.crs.to_string() if dataset.crs else 'None'}"
+        )
+        dtype = dataset.dtypes[0]
+        nodata_val = dataset.nodatavals[0]
+        print(f"  Band count: {dataset.count}")
+        scaled_min = None if min_val is None else min_val * scale
+        scaled_mean = None if mean_val is None else mean_val * scale
+        scaled_max = None if max_val is None else max_val * scale
+        scaled_pct2 = None if pct2 is None else pct2 * scale
+        scaled_pct98 = None if pct98 is None else pct98 * scale
+        min_str = "n/a" if scaled_min is None else f"{scaled_min:.2f}"
+        mean_str = "n/a" if scaled_mean is None else f"{scaled_mean:.2f}"
+        max_str = "n/a" if scaled_max is None else f"{scaled_max:.2f}"
+        print(
+            f"    - Band 1: dtype={dtype}, nodata={nodata_val}, "
+            f"min={min_str}, mean={mean_str}, max={max_str}"
+        )
+        print(f"      Valid pixels: {int(valid.size)} | Nodata pixels: {nodata_count}")
+        print(f"      Scaling note: {scale_note}")
+        if min_val is not None:
+            pct_low = "n/a" if scaled_pct2 is None else f"{scaled_pct2:.2f}"
+            pct_high = "n/a" if scaled_pct98 is None else f"{scaled_pct98:.2f}"
+            print(f"      2–98% percentile clip: {pct_low} – {pct_high} {units}")
+            print(
+                f"      Values ({units}): min={scaled_min:.2f}"
+                f" mean={scaled_mean:.2f} max={scaled_max:.2f}"
+            )
         else:
-            logger.info(
-                "  Values (%s): min=%.2f mean=%.2f max=%.2f", units, min_val * scale, mean_val * scale, max_val * scale
-            )
-            logger.info(
-                "  2–98%% percentile clip: %.2f – %.2f %s",
-                pct2 * scale,
-                pct98 * scale,
-                units,
-            )
-        logger.info("  Scaling note: %s", scale_note)
+            print("      Raster contains no valid data; skipping figures.")
 
         figure_dir.mkdir(parents=True, exist_ok=True)
 
         if min_val is not None:
             scaled_preview = preview.astype("float64") * scale
-            vmin = pct2 * scale if pct2 is not None else min_val * scale
-            vmax = pct98 * scale if pct98 is not None else max_val * scale
+            vmin = scaled_pct2 if scaled_pct2 is not None else scaled_min
+            vmax = scaled_pct98 if scaled_pct98 is not None else scaled_max
             if vmin is None or vmax is None or math.isclose(vmin, vmax):
-                vmin = min_val * scale
-                vmax = max_val * scale
+                vmin = scaled_min
+                vmax = scaled_max
 
             fig, ax = plt.subplots(figsize=(8, 4.5))
             im = ax.imshow(
@@ -231,7 +243,7 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             fig.tight_layout()
             fig.savefig(preview_path, dpi=200)
             plt.close(fig)
-            logger.info("  Saved preview to %s", preview_path)
+            print(f"      Saved preview to {preview_path}")
 
             sample = valid
             if sample.size > HISTOGRAM_SAMPLE_CAP:
@@ -251,7 +263,7 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             fig.tight_layout()
             fig.savefig(hist_path, dpi=200)
             plt.close(fig)
-            logger.info("  Saved histogram to %s", hist_path)
+            print(f"      Saved histogram to {hist_path}")
 
         return {
             "file_name": path.name,
@@ -265,14 +277,15 @@ def summarise_file(path: Path, figure_dir: Path) -> dict[str, object]:
             "bounds": (left, bottom, right, top),
             "crs": str(dataset.crs) if dataset.crs else None,
             "dtype": dataset.dtypes[0],
+            "band_count": dataset.count,
             "nodata_value": dataset.nodatavals[0],
             "nodata_count": nodata_count,
             "valid_pixel_count": int(valid.size),
-            "min": None if min_val is None else min_val * scale,
-            "mean": None if mean_val is None else mean_val * scale,
-            "max": None if max_val is None else max_val * scale,
-            "percentile_2": None if pct2 is None else pct2 * scale,
-            "percentile_98": None if pct98 is None else pct98 * scale,
+            "min": scaled_min,
+            "mean": scaled_mean,
+            "max": scaled_max,
+            "percentile_2": scaled_pct2,
+            "percentile_98": scaled_pct98,
             "scale_applied": scale,
             "scale_note": scale_note,
         }
@@ -285,11 +298,11 @@ def log_metadata_table(summaries: list[dict[str, object]]) -> None:
         return
 
     header = (
-        f"{'Code':6} {'Variable':35} {'Size (px)':>15} {'Resolution (°)':>20} "
-        f"{'Min':>10} {'Mean':>10} {'Max':>10} {'Nodata':>10}"
+        f"{'File':35} {'Size (px)':>12} {'Resolution (°)':>16} {'Bands':>7}"
+        f" {'Min':>10} {'Mean':>10} {'Max':>10}"
     )
-    logger.info("\n%s", header)
-    logger.info("%s", "-" * len(header))
+    print("\n" + header)
+    print("-" * len(header))
     for summary in summaries:
         res = summary["resolution"]
         size_str = f"{summary['width']}×{summary['height']}"
@@ -297,16 +310,10 @@ def log_metadata_table(summaries: list[dict[str, object]]) -> None:
         min_str = "n/a" if summary["min"] is None else f"{summary['min']:.2f}"
         mean_str = "n/a" if summary["mean"] is None else f"{summary['mean']:.2f}"
         max_str = "n/a" if summary["max"] is None else f"{summary['max']:.2f}"
-        logger.info(
-            "%6s %-35s %15s %20s %10s %10s %10s %10d",
-            summary["variable_code"],
-            str(summary["variable_name"])[:35],
-            size_str,
-            res_str,
-            min_str,
-            mean_str,
-            max_str,
-            summary["nodata_count"],
+        file_stem = Path(summary["file_name"]).stem
+        print(
+            f"{file_stem:<35} {size_str:>12} {res_str:>16} {summary['band_count']:>7}"
+            f" {min_str:>10} {mean_str:>10} {max_str:>10}"
         )
 
 
@@ -322,7 +329,7 @@ def write_summary_json(summaries: list[dict[str, object]], json_path: Path, figu
     }
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(payload, indent=2))
-    logger.info("Saved summary JSON to %s", json_path)
+    print(f"Saved summary JSON to {json_path}")
 
 
 def main() -> None:
@@ -351,8 +358,8 @@ def main() -> None:
     try:
         files = discover_worldclim_files(data_dir)
     except FileNotFoundError as exc:
-        logger.error("%s", exc)
-        logger.error("No rasters processed.")
+        print(exc)
+        print("No rasters processed.")
         return
 
     summaries = []
@@ -362,7 +369,7 @@ def main() -> None:
 
     log_metadata_table(summaries)
     write_summary_json(summaries, SUMMARY_JSON_PATH, figure_dir, data_dir)
-    logger.info("Inspection complete.")
+    print("Inspection complete.")
 
 
 if __name__ == "__main__":
