@@ -110,12 +110,14 @@ def main() -> None:
     )
 
     print("\nParameter statistics:")
-    _summarise_feature_stack(cube, PARAMETER_NAMES)
+    param_stack = cube[:, :, : len(PARAMETER_NAMES)]
+    _summarise_feature_stack(param_stack, PARAMETER_NAMES)
 
     print("\nQuality metric statistics:")
-    _summarise_feature_stack(cube, QUALITY_NAMES)
+    quality_stack = cube[:, :, len(PARAMETER_NAMES) :]
+    _summarise_feature_stack(quality_stack, QUALITY_NAMES)
 
-    r2 = cube[:, :, -2]
+    r2 = quality_stack[:, :, 0]
     good_r2_mask = ~np.isnan(r2) & (r2 >= 0.6)
     print(
         f"Pixels with R² ≥ 0.60: {np.count_nonzero(good_r2_mask):,} "
