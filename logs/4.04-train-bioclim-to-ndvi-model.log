@@ -3,25 +3,25 @@ Loaded combined dataset: bioclim stack (19, 878, 1218), ndvi cube (878, 1218, 8)
 Prepared training data with 462,273 samples and 19 features.
 Training RandomForestRegressor on 369,818 samples; evaluating on 92,455 samples.
 Model evaluation:
-  - xmid_spring: R²=0.835, MAE=8.359
-  - scale_spring: R²=0.000, MAE=42038.671
-  - xmid_autumn: R²=0.864, MAE=10.212
-  - scale_autumn: R²=-21011904.664, MAE=780.379
-  - bias: R²=0.929, MAE=289.871
-  - scale: R²=0.546, MAE=43564.908
-Overall variance-weighted R²: 0.001
-Overall mean absolute error: 14448.733
+  - xmid_spring: R²=0.838, MAE=8.149
+  - scale_spring: R²=-0.000, MAE=40535.790
+  - xmid_autumn: R²=0.869, MAE=9.856
+  - scale_autumn: R²=0.544, MAE=4.793
+  - bias: R²=0.930, MAE=288.055
+  - scale: R²=0.329, MAE=38650.619
+Overall variance-weighted R²: 0.000
+Overall mean absolute error: 13249.544
 Top 10 feature importances:
-  - BIO11_mean_temperature_of_coldest_quarter: 0.3369
-  - BIO08_mean_temperature_of_wettest_quarter: 0.2987
-  - BIO15_precipitation_seasonality: 0.1361
-  - BIO03_isothermality: 0.0377
-  - BIO04_temperature_seasonality: 0.0356
-  - BIO14_precipitation_of_driest_month: 0.0167
-  - BIO12_annual_precipitation: 0.0167
-  - BIO16_precipitation_of_wettest_quarter: 0.0166
-  - BIO02_mean_diurnal_range: 0.0163
-  - BIO13_precipitation_of_wettest_month: 0.0160
+  - BIO11_mean_temperature_of_coldest_quarter: 0.2031
+  - BIO01_annual_mean_temperature: 0.1331
+  - BIO14_precipitation_of_driest_month: 0.0813
+  - BIO05_max_temperature_of_warmest_month: 0.0799
+  - BIO19_precipitation_of_coldest_quarter: 0.0700
+  - BIO04_temperature_seasonality: 0.0473
+  - BIO18_precipitation_of_warmest_quarter: 0.0428
+  - BIO02_mean_diurnal_range: 0.0404
+  - BIO03_isothermality: 0.0371
+  - BIO07_temperature_annual_range: 0.0331
 Saved trained model to /work/pschluet/green_wave/data/intermediate/bioclim_to_ndvi_random_forest.joblib and metrics to /work/pschluet/green_wave/data/intermediate/bioclim_to_ndvi_random_forest_metrics.json.
 Training routine complete.
 === RUN FINISH (4.04-train-bioclim-to-ndvi-model) ===
