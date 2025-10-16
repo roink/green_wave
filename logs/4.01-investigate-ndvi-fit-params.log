@@ -1,0 +1,24 @@
+=== RUN START (4.01-investigate-ndvi-fit-params) ===
+Loading NDVI fit parameters from /work/pschluet/green_wave/data/intermediate/ndvi_fit_params.npz …
+Loaded array with shape (878, 1218, 8) and dtype float32
+Grid definition:
+  - Rows: 878 (latitudes 73.97°N to 30.12°N)
+  - Columns: 1218 (longitudes -13.22° to 47.62°)
+  - Resolution: 0.05° per pixel
+Valid NDVI parameter pixels: 606,650 / 1,069,404 (56.7%)
+
+Parameter statistics:
+  - xmid_spring: count=606,650, min=0.000, max=365.000, mean=124.351, median=103.828, std=69.311
+  - scale_spring: count=606,650, min=0.002, max=4318616064.000, mean=26539.545, median=17.606, std=6860184.500
+  - xmid_autumn: count=606,650, min=0.000, max=365.000, mean=246.257, median=289.655, std=84.298
+  - scale_autumn: count=606,650, min=0.000, max=9570275328.000, mean=53002.699, median=19.775, std=12572334.000
+  - bias: count=606,650, min=-49396.805, max=30294.926, mean=1753.234, median=1204.327, std=1966.303
+  - scale: count=606,650, min=0.000, max=801026496.000, mean=80322.531, median=6532.337, std=1187144.500
+
+Quality metric statistics:
+  - r_squared: count=606,650, min=0.000, max=0.994, mean=0.726, median=0.809, std=0.236
+  - covariance_quality: count=606,650, min=1.057, max=31697326309376.000, mean=1772058112.000, median=79.291, std=113004822528.000
+Pixels with R² ≥ 0.60: 463,147 (43.3% of grid)
+Mean covariance quality (lower is better): 1772058112.0000 ± 113004822528.0000
+Investigation complete.
+=== RUN FINISH (4.01-investigate-ndvi-fit-params) ===
