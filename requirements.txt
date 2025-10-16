@@ -9,3 +9,4 @@ opencv-python
 joblib
 ipywidgets
 rasterio
+scikit-learn
