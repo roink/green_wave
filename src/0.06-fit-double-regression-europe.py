@@ -13,7 +13,6 @@ import numpy as np
 from joblib import Parallel, delayed
 from scipy.ndimage import median_filter
 from scipy.optimize import OptimizeWarning, curve_fit
-from scipy.stats import linregress
 from tqdm.auto import tqdm
 
 from process_priority import lower_process_priority
@@ -63,12 +62,20 @@ def compute_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Return the coefficient of determination for the valid observations."""
 
     mask = ~np.isnan(y_true)
-    if np.sum(mask) < 5:
+    if np.count_nonzero(mask) < 5:
         return float("nan")
 
-    slope, intercept, r_value, _, _ = linregress(y_true[mask], y_pred[mask])
-    _ = (slope, intercept)  # explicitly ignore unused values
-    return r_value**2
+    true = y_true[mask]
+    pred = y_pred[mask]
+    ss_res = float(np.sum((true - pred) ** 2))
+    ss_tot = float(np.sum((true - np.mean(true)) ** 2))
+    if ss_tot == 0:
+        return float("nan")
+
+    r2 = 1 - ss_res / ss_tot
+    # Numerical noise can occasionally push the value outside the theoretical
+    # [0, 1] interval, so clip before returning.
+    return float(np.clip(r2, 0.0, 1.0))
 
 
 def _initial_guesses(
