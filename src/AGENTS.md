@@ -20,6 +20,7 @@
 - `0.12-investigate-harmonic-semiannual-trend.py`: Inspect diagnostic outputs from the harmonic semiannual trend fits.
 - `0.13-merge-bioclim-with-harmonic-semiannual-trend.py`: Combine harmonic semiannual trend fits with resampled bioclim variables.
 - `0.14-analyse-harmonic-bioclim-correlations.py`: Quantify correlations between harmonic semiannual trend outputs and bioclim variables.
+- `0.15-train-bioclim-to-harmonic-model.py`: Train and compare machine-learning models that predict harmonic semiannual trend parameters from bioclim features.
 - `1.01-fit-double-logistic-wrap.py`: Provide a reusable wrapper for double-logistic fitting.
 - `1.02-fit-double-logistic-to_scaled_ndvi.py`: Fit the double-logistic model to scaled NDVI inputs.
 - `1.03-fit-gaussia_to_ndvi.py`: Fit Gaussian curves to NDVI series.
@@ -35,6 +36,7 @@
 - `logging_setup.py`: Utility for mirroring stdout/stderr to deterministic log files via `initialize_script_logging`.
 - `bioclim_alignment_utils.py`: Utilities for listing and resampling WorldClim bioclim rasters onto the NDVI analysis grid and reading grid metadata from harmonic fit exports.
 - `bioclim_correlation_utils.py`: Helpers for loading combined NDVI/bioclim bundles and computing correlation tables.
+- `bioclim_model_utils.py`: Shared loaders and preprocessing utilities for bioclim regression tasks.
 - `ndvi_analysis_utils.py`: Shared NDVI preprocessing, smoothing, and plotting helpers.
 - `process_priority.py`: Helper to lower worker process priority during parallel processing.
 

@@ -7,12 +7,16 @@ import json
 from pathlib import Path
 from typing import Sequence
 
-import numpy as np
 from joblib import dump
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+
+from bioclim_model_utils import (
+    build_target_transform,
+    load_bioclim_target_bundle,
+    prepare_regression_samples,
+)
 
 from logging_setup import initialize_script_logging
 
@@ -40,116 +44,32 @@ LOG1P_THEN_STANDARDIZE = {"scale_spring", "scale_autumn", "scale"}
 STANDARDIZE_ONLY = {"xmid_spring", "xmid_autumn", "bias"}
 
 
-class _YTransform:
-    """Column-wise target transformer with inverse-transform support."""
-
-    def __init__(self, per_col_ops: list[list[tuple[str, object | None]]]):
-        self.per_col_ops = per_col_ops
-
-    def transform(self, y: np.ndarray) -> np.ndarray:
-        transformed = np.empty_like(y, dtype=float)
-        for idx, ops in enumerate(self.per_col_ops):
-            col = y[:, idx]
-            for name, obj in ops:
-                if name == "log1p":
-                    col = np.log1p(np.clip(col, a_min=0.0, a_max=None))
-                elif name == "standard" and obj is not None:
-                    col = obj.transform(col.reshape(-1, 1)).ravel()
-            transformed[:, idx] = col
-        return transformed
-
-    def inverse_transform(self, y: np.ndarray) -> np.ndarray:
-        restored = np.empty_like(y, dtype=float)
-        for idx, ops in enumerate(self.per_col_ops):
-            col = y[:, idx]
-            for name, obj in reversed(ops):
-                if name == "standard" and obj is not None:
-                    col = obj.inverse_transform(col.reshape(-1, 1)).ravel()
-                elif name == "log1p":
-                    col = np.expm1(col)
-            restored[:, idx] = col
-        return restored
-
-
-def _fit_y_transform(y: np.ndarray, target_names: Sequence[str]) -> _YTransform:
-    per_col_ops: list[list[tuple[str, object | None]]] = []
-    for idx, name in enumerate(target_names):
-        ops: list[tuple[str, object | None]] = []
-        column = y[:, idx]
-        if name in LOG1P_THEN_STANDARDIZE:
-            ops.append(("log1p", None))
-            log_column = np.log1p(np.clip(column, a_min=0.0, a_max=None)).reshape(-1, 1)
-            scaler = StandardScaler().fit(log_column)
-            ops.append(("standard", scaler))
-        else:
-            scaler = StandardScaler().fit(column.reshape(-1, 1))
-            ops.append(("standard", scaler))
-        per_col_ops.append(ops)
-    return _YTransform(per_col_ops)
-
-
-def _load_combined_dataset() -> tuple[np.ndarray, np.ndarray, list[str], list[str]]:
-    if not COMBINED_PATH.exists():
-        raise FileNotFoundError(
-            "Combined dataset missing. "
-            f"Expected to find {COMBINED_PATH}. Run 4.02-merge-bioclim-with-ndvi-fit-params.py first."
-        )
-    with np.load(COMBINED_PATH, allow_pickle=True) as data:
-        try:
-            bioclim_stack = data["bioclim"]
-            ndvi_cube = data["ndvi_fit_params"]
-            bioclim_names = data["bioclim_names"].tolist()
-            ndvi_feature_names = data["ndvi_feature_names"].tolist()
-        except KeyError as error:
-            raise KeyError(
-                "Combined dataset is missing required arrays. Expected keys: "
-                "'bioclim', 'ndvi_fit_params', 'bioclim_names', 'ndvi_feature_names'."
-            ) from error
-    print(
-        "Loaded combined dataset: "
-        f"bioclim stack {bioclim_stack.shape}, ndvi cube {ndvi_cube.shape}."
-    )
-    return bioclim_stack, ndvi_cube, bioclim_names, ndvi_feature_names
-
-
-def _prepare_training_data(
-    bioclim_stack: np.ndarray,
-    ndvi_cube: np.ndarray,
-    bioclim_names: Sequence[str],
-    ndvi_feature_names: Sequence[str],
-) -> tuple[np.ndarray, np.ndarray]:
-    feature_index = {name: idx for idx, name in enumerate(ndvi_feature_names)}
-    missing_targets = [name for name in TARGET_FEATURES if name not in feature_index]
-    if missing_targets:
-        raise KeyError(
-            "Combined dataset does not contain all required NDVI features: "
-            + ", ".join(missing_targets)
-        )
-
-    target_indices = [feature_index[name] for name in TARGET_FEATURES]
-    quality_index = feature_index.get(QUALITY_FEATURE)
-
-    rows, cols = ndvi_cube.shape[:2]
-    samples = rows * cols
-    X = bioclim_stack.reshape(len(bioclim_names), samples).T
-    y = ndvi_cube[:, :, target_indices].reshape(samples, len(target_indices))
-
-    mask = ~np.isnan(X).any(axis=1) & ~np.isnan(y).any(axis=1)
-    if quality_index is not None:
-        quality = ndvi_cube[:, :, quality_index].reshape(samples)
-        mask &= ~np.isnan(quality) & (quality >= R2_THRESHOLD)
-
-    X_valid = X[mask]
-    y_valid = y[mask]
-    print(
-        f"Prepared training data with {X_valid.shape[0]:,} samples and {X_valid.shape[1]} features."
-    )
-    return X_valid, y_valid
-
-
 def main() -> None:
-    bioclim_stack, ndvi_cube, bioclim_names, ndvi_feature_names = _load_combined_dataset()
-    X, y = _prepare_training_data(bioclim_stack, ndvi_cube, bioclim_names, ndvi_feature_names)
+    bundle = load_bioclim_target_bundle(
+        COMBINED_PATH,
+        target_array_key="ndvi_fit_params",
+        target_names_key="ndvi_feature_names",
+        missing_file_hint="Run 4.02-merge-bioclim-with-ndvi-fit-params.py first.",
+    )
+
+    bioclim_names = bundle.bioclim_names
+    quality_layers = []
+    if QUALITY_FEATURE in bundle.target_names:
+        quality_index = bundle.target_names.index(QUALITY_FEATURE)
+        quality_layers.append((bundle.target_cube[:, :, quality_index], R2_THRESHOLD))
+    else:
+        print(
+            f"Warning: quality feature '{QUALITY_FEATURE}' missing from combined dataset."
+        )
+
+    X, y, _ = prepare_regression_samples(
+        bundle.bioclim_stack,
+        bundle.bioclim_names,
+        bundle.target_cube,
+        bundle.target_names,
+        TARGET_FEATURES,
+        quality_layers=quality_layers or None,
+    )
 
     if X.shape[0] < 1000:
         print(
@@ -160,7 +80,12 @@ def main() -> None:
         X, y, test_size=0.2, random_state=42
     )
 
-    y_transform = _fit_y_transform(y_train, TARGET_FEATURES)
+    y_transform = build_target_transform(
+        y_train,
+        TARGET_FEATURES,
+        log1p_then_standardize=LOG1P_THEN_STANDARDIZE,
+        standardize_only=STANDARDIZE_ONLY,
+    )
     y_train_transformed = y_transform.transform(y_train)
 
     print(
