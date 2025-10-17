@@ -1,0 +1,175 @@
+=== RUN START (0.14-analyse-harmonic-bioclim-correlations) ===
+Loaded arrays from /work/pschluet/green_wave/data/intermediate/ndvi_harmonic_semiannual_trend_bioclim_combined.npz: bioclim, bioclim_names, harmonic_adjusted_r_squared, harmonic_aic, harmonic_amplitude_annual, harmonic_amplitude_semiannual, harmonic_layer_names, harmonic_num_observations, harmonic_parameter_names, harmonic_parameters, harmonic_phase_annual_days, harmonic_phase_semiannual_days, harmonic_r_squared, latitudes, longitudes.
+Loaded harmonic combined dataset: bioclim stack (19, 3600, 7200), harmonic parameter cube (3600, 7200, 6).
+Prepared 14 feature layers for correlation analysis.
+Saved correlation table to /work/pschluet/green_wave/data/intermediate/bioclim_harmonic_correlations.csv.
+
+Top correlations for adjusted_r_squared:
+  Method: pearson
+           feature                          bioclim_variable  method  correlation  overlap_pixels
+adjusted_r_squared  BIO09_mean_temperature_of_driest_quarter pearson    -0.493892         6294105
+adjusted_r_squared    BIO06_min_temperature_of_coldest_month pearson    -0.468192         6294105
+adjusted_r_squared            BIO07_temperature_annual_range pearson     0.463733         6294105
+adjusted_r_squared             BIO04_temperature_seasonality pearson     0.459818         6294105
+adjusted_r_squared BIO11_mean_temperature_of_coldest_quarter pearson    -0.454970         6294105
+
+Top correlations for aic:
+  Method: pearson
+feature                          bioclim_variable  method  correlation  overlap_pixels
+    aic BIO08_mean_temperature_of_wettest_quarter pearson     0.296975         6294105
+    aic    BIO18_precipitation_of_warmest_quarter pearson     0.246451         6294105
+    aic    BIO05_max_temperature_of_warmest_month pearson     0.232136         6294105
+    aic                  BIO02_mean_diurnal_range pearson     0.207134         6294105
+    aic BIO10_mean_temperature_of_warmest_quarter pearson     0.195542         6294105
+
+Top correlations for amplitude_annual:
+  Method: pearson
+         feature                          bioclim_variable  method  correlation  overlap_pixels
+amplitude_annual  BIO09_mean_temperature_of_driest_quarter pearson    -0.051891         6294105
+amplitude_annual             BIO04_temperature_seasonality pearson     0.050622         6294105
+amplitude_annual BIO11_mean_temperature_of_coldest_quarter pearson    -0.049902         6294105
+amplitude_annual    BIO06_min_temperature_of_coldest_month pearson    -0.049861         6294105
+amplitude_annual            BIO07_temperature_annual_range pearson     0.047649         6294105
+
+Top correlations for amplitude_semiannual:
+  Method: pearson
+             feature                          bioclim_variable  method  correlation  overlap_pixels
+amplitude_semiannual  BIO09_mean_temperature_of_driest_quarter pearson    -0.074401         6294105
+amplitude_semiannual BIO11_mean_temperature_of_coldest_quarter pearson    -0.073363         6294105
+amplitude_semiannual             BIO01_annual_mean_temperature pearson    -0.071968         6294105
+amplitude_semiannual    BIO06_min_temperature_of_coldest_month pearson    -0.071848         6294105
+amplitude_semiannual             BIO04_temperature_seasonality pearson     0.069712         6294105
+
+Top correlations for beta0:
+  Method: pearson
+feature                       bioclim_variable  method  correlation  overlap_pixels
+  beta0             BIO12_annual_precipitation pearson     0.134643         6294105
+  beta0 BIO16_precipitation_of_wettest_quarter pearson     0.129327         6294105
+  beta0   BIO13_precipitation_of_wettest_month pearson     0.125667         6294105
+  beta0 BIO18_precipitation_of_warmest_quarter pearson     0.117364         6294105
+  beta0                    BIO03_isothermality pearson     0.106569         6294105
+
+Top correlations for beta1_cos1:
+  Method: pearson
+   feature                          bioclim_variable  method  correlation  overlap_pixels
+beta1_cos1             BIO04_temperature_seasonality pearson    -0.146677         6294105
+beta1_cos1 BIO11_mean_temperature_of_coldest_quarter pearson     0.140042         6294105
+beta1_cos1  BIO09_mean_temperature_of_driest_quarter pearson     0.140038         6294105
+beta1_cos1    BIO06_min_temperature_of_coldest_month pearson     0.139503         6294105
+beta1_cos1            BIO07_temperature_annual_range pearson    -0.137946         6294105
+
+Top correlations for beta2_sin1:
+  Method: pearson
+   feature                          bioclim_variable  method  correlation  overlap_pixels
+beta2_sin1             BIO04_temperature_seasonality pearson     0.036202         6294105
+beta2_sin1 BIO11_mean_temperature_of_coldest_quarter pearson    -0.035681         6294105
+beta2_sin1  BIO09_mean_temperature_of_driest_quarter pearson    -0.035425         6294105
+beta2_sin1    BIO06_min_temperature_of_coldest_month pearson    -0.035151         6294105
+beta2_sin1             BIO01_annual_mean_temperature pearson    -0.033040         6294105
+
+Top correlations for beta3_cos2:
+  Method: pearson
+   feature                          bioclim_variable  method  correlation  overlap_pixels
+beta3_cos2  BIO09_mean_temperature_of_driest_quarter pearson    -0.097232         6294105
+beta3_cos2 BIO11_mean_temperature_of_coldest_quarter pearson    -0.095358         6294105
+beta3_cos2    BIO06_min_temperature_of_coldest_month pearson    -0.095349         6294105
+beta3_cos2             BIO01_annual_mean_temperature pearson    -0.094749         6294105
+beta3_cos2             BIO04_temperature_seasonality pearson     0.088804         6294105
+
+Top correlations for beta4_sin2:
+  Method: pearson
+   feature                          bioclim_variable  method  correlation  overlap_pixels
+beta4_sin2             BIO04_temperature_seasonality pearson    -0.070690         6294105
+beta4_sin2            BIO07_temperature_annual_range pearson    -0.070595         6294105
+beta4_sin2    BIO06_min_temperature_of_coldest_month pearson     0.064215         6294105
+beta4_sin2  BIO09_mean_temperature_of_driest_quarter pearson     0.064021         6294105
+beta4_sin2 BIO11_mean_temperature_of_coldest_quarter pearson     0.062696         6294105
+
+Top correlations for beta5_trend:
+  Method: pearson
+    feature                       bioclim_variable  method  correlation  overlap_pixels
+beta5_trend                    BIO03_isothermality pearson    -0.101299         6294105
+beta5_trend BIO18_precipitation_of_warmest_quarter pearson     0.091583         6294105
+beta5_trend               BIO02_mean_diurnal_range pearson    -0.087812         6294105
+beta5_trend   BIO13_precipitation_of_wettest_month pearson     0.077761         6294105
+beta5_trend        BIO15_precipitation_seasonality pearson     0.068247         6294105
+
+Top correlations for num_observations:
+  Method: pearson
+         feature                          bioclim_variable  method  correlation  overlap_pixels
+num_observations    BIO05_max_temperature_of_warmest_month pearson     0.916673         8805992
+num_observations BIO08_mean_temperature_of_wettest_quarter pearson     0.911219         8805992
+num_observations BIO10_mean_temperature_of_warmest_quarter pearson     0.910079         8805992
+num_observations             BIO01_annual_mean_temperature pearson     0.855813         8805992
+num_observations BIO11_mean_temperature_of_coldest_quarter pearson     0.769223         8805992
+
+Top correlations for phase_annual_days:
+  Method: circular_linear
+          feature                          bioclim_variable          method  correlation  overlap_pixels
+phase_annual_days BIO11_mean_temperature_of_coldest_quarter circular_linear    -0.594209         6294105
+phase_annual_days    BIO06_min_temperature_of_coldest_month circular_linear    -0.584196         6294105
+phase_annual_days  BIO09_mean_temperature_of_driest_quarter circular_linear    -0.574694         6294105
+phase_annual_days             BIO01_annual_mean_temperature circular_linear    -0.570963         6294105
+phase_annual_days                       BIO03_isothermality circular_linear    -0.562321         6294105
+  Method: cosine_embedding
+          feature                          bioclim_variable           method  correlation  overlap_pixels
+phase_annual_days  BIO09_mean_temperature_of_driest_quarter cosine_embedding     0.476759         6294105
+phase_annual_days BIO11_mean_temperature_of_coldest_quarter cosine_embedding     0.464844         6294105
+phase_annual_days    BIO06_min_temperature_of_coldest_month cosine_embedding     0.459265         6294105
+phase_annual_days             BIO04_temperature_seasonality cosine_embedding    -0.457128         6294105
+phase_annual_days                       BIO03_isothermality cosine_embedding     0.449487         6294105
+  Method: pearson
+          feature                          bioclim_variable  method  correlation  overlap_pixels
+phase_annual_days    BIO19_precipitation_of_coldest_quarter pearson     0.106253         6294105
+phase_annual_days                BIO12_annual_precipitation pearson     0.102352         6294105
+phase_annual_days      BIO13_precipitation_of_wettest_month pearson     0.096964         6294105
+phase_annual_days BIO10_mean_temperature_of_warmest_quarter pearson     0.092960         6294105
+phase_annual_days    BIO16_precipitation_of_wettest_quarter pearson     0.090930         6294105
+  Method: sine_embedding
+          feature                          bioclim_variable         method  correlation  overlap_pixels
+phase_annual_days BIO11_mean_temperature_of_coldest_quarter sine_embedding    -0.432015         6294105
+phase_annual_days             BIO01_annual_mean_temperature sine_embedding    -0.426933         6294105
+phase_annual_days    BIO06_min_temperature_of_coldest_month sine_embedding    -0.422233         6294105
+phase_annual_days                       BIO03_isothermality sine_embedding    -0.397915         6294105
+phase_annual_days             BIO04_temperature_seasonality sine_embedding     0.387855         6294105
+
+Top correlations for phase_semiannual_days:
+  Method: circular_linear
+              feature                          bioclim_variable          method  correlation  overlap_pixels
+phase_semiannual_days  BIO09_mean_temperature_of_driest_quarter circular_linear     0.431437         6294105
+phase_semiannual_days    BIO06_min_temperature_of_coldest_month circular_linear     0.427007         6294105
+phase_semiannual_days             BIO04_temperature_seasonality circular_linear    -0.409579         6294105
+phase_semiannual_days BIO11_mean_temperature_of_coldest_quarter circular_linear     0.408310         6294105
+phase_semiannual_days            BIO07_temperature_annual_range circular_linear    -0.407850         6294105
+  Method: cosine_embedding
+              feature                          bioclim_variable           method  correlation  overlap_pixels
+phase_semiannual_days    BIO06_min_temperature_of_coldest_month cosine_embedding    -0.400108         6294105
+phase_semiannual_days BIO11_mean_temperature_of_coldest_quarter cosine_embedding    -0.381133         6294105
+phase_semiannual_days  BIO09_mean_temperature_of_driest_quarter cosine_embedding    -0.378468         6294105
+phase_semiannual_days             BIO04_temperature_seasonality cosine_embedding     0.368317         6294105
+phase_semiannual_days             BIO01_annual_mean_temperature cosine_embedding    -0.366313         6294105
+  Method: pearson
+              feature                          bioclim_variable  method  correlation  overlap_pixels
+phase_semiannual_days  BIO09_mean_temperature_of_driest_quarter pearson    -0.333774         6294105
+phase_semiannual_days             BIO04_temperature_seasonality pearson     0.321566         6294105
+phase_semiannual_days            BIO07_temperature_annual_range pearson     0.304688         6294105
+phase_semiannual_days BIO11_mean_temperature_of_coldest_quarter pearson    -0.303485         6294105
+phase_semiannual_days    BIO06_min_temperature_of_coldest_month pearson    -0.303190         6294105
+  Method: sine_embedding
+              feature                          bioclim_variable         method  correlation  overlap_pixels
+phase_semiannual_days  BIO09_mean_temperature_of_driest_quarter sine_embedding     0.271568         6294105
+phase_semiannual_days            BIO07_temperature_annual_range sine_embedding    -0.243910         6294105
+phase_semiannual_days             BIO04_temperature_seasonality sine_embedding    -0.242235         6294105
+phase_semiannual_days    BIO06_min_temperature_of_coldest_month sine_embedding     0.218419         6294105
+phase_semiannual_days BIO11_mean_temperature_of_coldest_quarter sine_embedding     0.212377         6294105
+
+Top correlations for r_squared:
+  Method: pearson
+  feature                          bioclim_variable  method  correlation  overlap_pixels
+r_squared  BIO09_mean_temperature_of_driest_quarter pearson    -0.496060         6294105
+r_squared    BIO06_min_temperature_of_coldest_month pearson    -0.470069         6294105
+r_squared            BIO07_temperature_annual_range pearson     0.463892         6294105
+r_squared             BIO04_temperature_seasonality pearson     0.460901         6294105
+r_squared BIO11_mean_temperature_of_coldest_quarter pearson    -0.457089         6294105
+Harmonic correlation analysis complete.
+=== RUN FINISH (0.14-analyse-harmonic-bioclim-correlations) ===
