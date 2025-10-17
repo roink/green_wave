@@ -1,0 +1,122 @@
+=== RUN START (0.12-investigate-harmonic-semiannual-trend) ===
+Opening harmonic fit file: /work/pschluet/green_wave/data/intermediate/ndvi_harmonic_fit_semiannual_trend.h5
+File attributes:
+  - include_semiannual: 1
+  - include_trend: 1
+  - model_name: semiannual_trend
+  - omega: 0.017202791208627003
+  - period_days: 365.2422
+  - time_center_days: 4565.895470383275
+  - time_origin: 2000-02-18T00:00:00
+  - time_units: days since time_origin
+Spatial grid: rows=3600, cols=7200, lat_step=0.050°, lon_step=0.050°
+Europe slice: rows[360:1200], cols[3360:4400], extent=(-12.0, 40.0, 30.0, 72.0)
+
+Dataset 'adjusted_r_squared': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    adjusted_r_squared: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-1.000, max=0.998, mean=0.632, median=0.756, std=0.286
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__adjusted_r_squared_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__adjusted_r_squared_histogram.png
+
+Dataset 'aic': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    aic: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=87.198, max=8945.256, mean=6511.130, median=6807.628, std=1252.576
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__aic_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__aic_histogram.png
+
+Dataset 'amplitude_annual': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    amplitude_annual: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=0.025, max=41372744.000, mean=1813.707, median=1430.862, std=21311.570
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__amplitude_annual_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__amplitude_annual_histogram.png
+
+Dataset 'amplitude_semiannual': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    amplitude_semiannual: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=0.021, max=10565809.000, mean=597.628, median=389.577, std=5542.561
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__amplitude_semiannual_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__amplitude_semiannual_histogram.png
+
+Dataset 'metadata': shape=(574, 2), dtype=int32
+  Attributes:
+  (no attributes)
+  Dataset '/metadata' preview (first 5 rows):
+[[2000   49]
+ [2000   65]
+ [2000   81]
+ [2000   97]
+ [2000  113]]
+
+Dataset 'num_observations': shape=(3600, 7200), dtype=int16
+  Attributes:
+  (no attributes)
+    num_observations: shape=(3600, 7200), dtype=int16, valid=25,920,000/25,920,000 (100.0%)
+      min=0.000, max=574.000, mean=128.692, median=0.000, std=229.710
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__num_observations_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__num_observations_histogram.png
+
+Dataset 'parameters': shape=(3600, 7200, 6), dtype=float32
+  Attributes:
+  - parameter_names: ['beta0', 'beta1_cos1', 'beta2_sin1', 'beta3_cos2', 'beta4_sin2', 'beta5_trend']
+    parameters/beta0: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-30809284.000, max=14756676.000, mean=3255.738, median=2928.507, std=15952.817
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta0_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta0_histogram.png
+    parameters/beta1_cos1: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-15882449.000, max=6699749.500, mean=-1261.986, median=-881.383, std=8545.968
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta1_cos1_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta1_cos1_histogram.png
+    parameters/beta2_sin1: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-18633838.000, max=38202772.000, mean=717.892, median=466.328, std=19553.281
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta2_sin1_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta2_sin1_histogram.png
+    parameters/beta3_cos2: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-3891505.250, max=7443225.500, mean=252.212, median=52.801, std=3866.710
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta3_cos2_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta3_cos2_histogram.png
+    parameters/beta4_sin2: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-3208705.750, max=7498981.500, mean=-152.450, median=-17.154, std=4004.855
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta4_sin2_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta4_sin2_histogram.png
+    parameters/beta5_trend: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=-1.524, max=1.226, mean=0.021, median=0.016, std=0.045
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta5_trend_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__parameters-beta5_trend_histogram.png
+
+Dataset 'phase_annual_days': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    phase_annual_days: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=0.000, max=365.242, mean=153.585, median=152.540, std=74.829
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__phase_annual_days_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__phase_annual_days_histogram.png
+
+Dataset 'phase_semiannual_days': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    phase_semiannual_days: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=0.000, max=182.621, mean=101.194, median=100.634, std=57.442
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__phase_semiannual_days_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__phase_semiannual_days_histogram.png
+
+Dataset 'r_squared': shape=(3600, 7200), dtype=float32
+  Attributes:
+  (no attributes)
+    r_squared: shape=(3600, 7200), dtype=float32, valid=6,314,752/25,920,000 (24.4%)
+      min=0.000, max=0.999, mean=0.637, median=0.759, std=0.282
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__r_squared_maps.png
+Saved figure to /work/pschluet/green_wave/figure/0.12-investigate-harmonic-semiannual-trend/0.12-investigate-harmonic-semiannual-trend__r_squared_histogram.png
+
+Dataset 'time_offsets_days': shape=(574,), dtype=float32
+  Attributes:
+  (no attributes)
+  Time offsets statistics (days): min=0.0, max=9100.0, mean=4565.9
+Investigation complete.
+=== RUN FINISH (0.12-investigate-harmonic-semiannual-trend) ===
