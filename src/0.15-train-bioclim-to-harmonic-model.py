@@ -64,6 +64,8 @@ MODEL_FACTORIES: dict[str, ModelFactory] = {
         n_estimators=400,
         max_depth=None,
         min_samples_leaf=2,
+        max_samples=0.8,
+        max_features=0.5,
         random_state=42,
         n_jobs=-1,
     ),

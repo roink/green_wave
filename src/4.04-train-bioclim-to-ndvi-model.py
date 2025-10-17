@@ -98,7 +98,13 @@ def main() -> None:
         f"evaluating on {X_test.shape[0]:,} samples."
     )
 
-    model = RandomForestRegressor(n_estimators=300, random_state=42, n_jobs=-1)
+    model = RandomForestRegressor(
+        n_estimators=300,
+        random_state=42,
+        n_jobs=-1,
+        max_samples=0.8,
+        max_features=0.5,
+    )
     model.fit(X_train, y_train_transformed)
     predictions_transformed = model.predict(X_test)
     predictions = y_transform.inverse_transform(predictions_transformed)
