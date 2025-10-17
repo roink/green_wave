@@ -22,7 +22,7 @@ INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
 NDVI_FIT_PATH = INTERMEDIATE_DIR / "ndvi_fit_params.npz"
 OUTPUT_PATH = INTERMEDIATE_DIR / "ndvi_bioclim_combined.npz"
 
-GRID_SPEC = NdviGridSpec(row_start=320, row_end=1198, col_start=3335, col_end=4553)
+GRID_SPEC = NdviGridSpec(row_start=0, row_end=3600, col_start=0, col_end=7200)
 
 NDVI_FEATURE_NAMES = (
     "xmid_spring",

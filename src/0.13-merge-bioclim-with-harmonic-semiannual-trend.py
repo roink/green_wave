@@ -28,7 +28,7 @@ OUTPUT_PATH = (
 )
 
 FALLBACK_GRID_SPEC = NdviGridSpec(
-    row_start=320, row_end=1198, col_start=3335, col_end=4553
+    row_start=0, row_end=3600, col_start=0, col_end=7200
 )
 
 HARMONIC_EXPORTS: list[tuple[str, str]] = [
