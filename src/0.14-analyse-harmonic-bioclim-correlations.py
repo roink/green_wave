@@ -10,8 +10,10 @@ import numpy as np
 from bioclim_correlation_utils import (
     FeatureLayerSpec,
     compute_correlation_table,
+    load_npz_arrays,
     load_bioclim_layers,
     load_feature_layers,
+    _normalise_string_list,
     print_top_correlations,
     save_correlation_table,
 )
@@ -36,51 +38,62 @@ QUALITY_LAYER_KEYS: list[tuple[str, str]] = [
 ]
 
 
-def _decode_layer_names(raw: np.ndarray | None) -> list[str] | None:
-    if raw is None:
+def _infer_phase_period(feature_name: str) -> float | None:
+    name = feature_name.lower()
+    if "phase" not in name:
         return None
-    decoded = [
-        value.decode("utf-8") if isinstance(value, (bytes, np.bytes_)) else str(value)
-        for value in raw
-    ]
-    return decoded
+    if "semi" in name:
+        return 182.5
+    if "annual" in name:
+        return 365.0
+    return 365.0
 
 
 def _load_combined_dataset() -> tuple[np.ndarray, list[str], dict[str, np.ndarray]]:
-    if not COMBINED_PATH.exists():
-        raise FileNotFoundError(
-            "Combined harmonic dataset missing. "
-            f"Expected to find {COMBINED_PATH}. Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first."
-        )
+    arrays = load_npz_arrays(
+        COMBINED_PATH,
+        required_keys=[
+            "bioclim",
+            "bioclim_names",
+            "harmonic_parameters",
+            "harmonic_parameter_names",
+        ],
+        optional_keys=["harmonic_layer_names", *[key for key, _ in QUALITY_LAYER_KEYS]],
+        missing_file_hint="Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first.",
+    )
 
-    with np.load(COMBINED_PATH, allow_pickle=True) as data:
-        bioclim_stack, bioclim_names = load_bioclim_layers(data)
-        feature_layers = load_feature_layers(
-            data,
-            FeatureLayerSpec(
-                array_key="harmonic_parameters",
-                names_key="harmonic_parameter_names",
-            ),
-        )
+    bioclim_stack, bioclim_names = load_bioclim_layers(arrays)
+    feature_layers = load_feature_layers(
+        arrays,
+        FeatureLayerSpec(
+            array_key="harmonic_parameters",
+            names_key="harmonic_parameter_names",
+        ),
+    )
 
-        layer_names = _decode_layer_names(data.get("harmonic_layer_names"))
-        for idx, (dataset_key, fallback_name) in enumerate(QUALITY_LAYER_KEYS):
-            if dataset_key not in data:
-                print(f"Warning: '{dataset_key}' missing from combined dataset.")
-                continue
-            layer_array = np.asarray(data[dataset_key], dtype=np.float32)
-            name = (
-                layer_names[idx]
-                if layer_names is not None and idx < len(layer_names)
-                else fallback_name
-            )
-            feature_layers[name] = layer_array.ravel()
-
-        harmonic_shape = (
-            data["harmonic_parameters"].shape
-            if "harmonic_parameters" in data
-            else "unknown"
+    layer_names_raw = arrays.get("harmonic_layer_names")
+    layer_names = (
+        _normalise_string_list(layer_names_raw)
+        if layer_names_raw is not None
+        else None
+    )
+    for idx, (dataset_key, fallback_name) in enumerate(QUALITY_LAYER_KEYS):
+        if dataset_key not in arrays:
+            print(f"Warning: '{dataset_key}' missing from combined dataset.")
+            continue
+        layer_array = np.asarray(arrays[dataset_key], dtype=np.float32)
+        name = (
+            layer_names[idx]
+            if layer_names is not None and idx < len(layer_names)
+            else fallback_name
         )
+        feature_layers[name] = layer_array.ravel()
+
+    harmonic_shape = (
+        arrays["harmonic_parameters"].shape
+        if "harmonic_parameters" in arrays
+        else "unknown"
+    )
     print(
         "Loaded harmonic combined dataset: "
         f"bioclim stack {bioclim_stack.shape}, harmonic parameter cube {harmonic_shape}."
@@ -92,10 +105,17 @@ def _load_combined_dataset() -> tuple[np.ndarray, list[str], dict[str, np.ndarra
 def main() -> None:
     bioclim_stack, bioclim_names, feature_layers = _load_combined_dataset()
 
+    circular_periods = {
+        name: period
+        for name in feature_layers
+        if (period := _infer_phase_period(name)) is not None
+    }
+
     df = compute_correlation_table(
         bioclim_stack,
         bioclim_names,
         feature_layers,
+        circular_feature_periods=circular_periods,
     )
 
     save_correlation_table(df, OUTPUT_TABLE_PATH)

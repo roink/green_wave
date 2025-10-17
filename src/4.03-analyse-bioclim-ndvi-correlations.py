@@ -11,6 +11,7 @@ from logging_setup import initialize_script_logging
 from bioclim_correlation_utils import (
     FeatureLayerSpec,
     compute_correlation_table,
+    load_npz_arrays,
     load_bioclim_layers,
     load_feature_layers,
     print_top_correlations,
@@ -26,21 +27,22 @@ OUTPUT_TABLE_PATH = INTERMEDIATE_DIR / "bioclim_ndvi_correlations.csv"
 
 
 def _load_combined_dataset() -> tuple[np.ndarray, list[str], dict[str, np.ndarray]]:
-    if not COMBINED_PATH.exists():
-        raise FileNotFoundError(
-            "Combined dataset missing. "
-            f"Expected to find {COMBINED_PATH}. Run 4.02-merge-bioclim-with-ndvi-fit-params.py first."
-        )
-    with np.load(COMBINED_PATH, allow_pickle=True) as data:
-        bioclim_stack, bioclim_names = load_bioclim_layers(data)
-        ndvi_features = load_feature_layers(
-            data,
-            FeatureLayerSpec(
-                array_key="ndvi_fit_params",
-                names_key="ndvi_feature_names",
-            ),
-        )
-        ndvi_shape = data["ndvi_fit_params"].shape if "ndvi_fit_params" in data else "unknown"
+    arrays = load_npz_arrays(
+        COMBINED_PATH,
+        required_keys=["bioclim", "bioclim_names", "ndvi_fit_params"],
+        optional_keys=["ndvi_feature_names"],
+        missing_file_hint="Run 4.02-merge-bioclim-with-ndvi-fit-params.py first.",
+    )
+
+    bioclim_stack, bioclim_names = load_bioclim_layers(arrays)
+    ndvi_features = load_feature_layers(
+        arrays,
+        FeatureLayerSpec(
+            array_key="ndvi_fit_params",
+            names_key="ndvi_feature_names",
+        ),
+    )
+    ndvi_shape = arrays["ndvi_fit_params"].shape if "ndvi_fit_params" in arrays else "unknown"
     print(
         "Loaded combined dataset: "
         f"bioclim stack {bioclim_stack.shape}, ndvi cube shape {ndvi_shape}."
