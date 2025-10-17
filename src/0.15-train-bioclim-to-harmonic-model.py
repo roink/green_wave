@@ -130,6 +130,7 @@ def _compute_phase_metrics(
 def _prepare_dataset():
     """Load the harmonic bundle and construct ML-ready matrices."""
 
+    print(f"Loading combined harmonic and bioclim dataset from {COMBINED_PATH}.")
     bundle = load_bioclim_target_bundle(
         COMBINED_PATH,
         target_array_key="harmonic_parameters",
@@ -138,9 +139,18 @@ def _prepare_dataset():
         missing_file_hint="Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first.",
     )
 
+    print(
+        "Loaded {bioclim} bioclim features and {targets} harmonic targets.".format(
+            bioclim=len(bundle.bioclim_names), targets=len(bundle.target_names)
+        )
+    )
+
     quality_layers = []
     if QUALITY_KEY in bundle.extras:
         quality_layers.append((bundle.extras[QUALITY_KEY], R2_THRESHOLD))
+        print(
+            f"Applying quality filter '{QUALITY_KEY}' with threshold >= {R2_THRESHOLD}."
+        )
     else:
         print(
             f"Warning: quality layer '{QUALITY_KEY}' missing from combined dataset;"
@@ -154,6 +164,12 @@ def _prepare_dataset():
         bundle.target_names,
         bundle.target_names,
         quality_layers=quality_layers or None,
+    )
+
+    print(
+        "Prepared {samples:,} preliminary samples with {features} features.".format(
+            samples=X.shape[0], features=X.shape[1]
+        )
     )
 
     extras_masked: dict[str, np.ndarray] = {}
@@ -233,6 +249,12 @@ def _prepare_dataset():
         )
     )
     print(f"Target columns: {', '.join(target_names_extended)}")
+    if log1p_targets:
+        print(
+            "Log1p+standardize targets: {targets}.".format(
+                targets=", ".join(log1p_targets)
+            )
+        )
 
     return (
         X,
@@ -316,6 +338,20 @@ def _cross_validate_model(
             phase_metrics[phase_name]["circular_r2"].append(float(circular_r2))
             phase_metrics[phase_name]["circular_mae"].append(float(circular_mae))
 
+        fold_r2_values = []
+        for metrics in direct_metrics.values():
+            if metrics["r2"]:
+                fold_r2_values.append(metrics["r2"][-1])
+        for metrics in phase_metrics.values():
+            if metrics["circular_r2"]:
+                fold_r2_values.append(metrics["circular_r2"][-1])
+        if fold_r2_values:
+            print(
+                "    Fold {fold} mean R² across targets: {score:.3f}.".format(
+                    fold=fold, score=float(np.nanmean(fold_r2_values))
+                )
+            )
+
     def _mean(values: list[float]) -> float:
         return float(np.nanmean(values)) if values else float("nan")
 
@@ -377,6 +413,11 @@ def _train_full_model(
 ) -> dict:
     """Fit ``factory`` on the full dataset and package inference metadata."""
 
+    print(
+        "Training final {label} model on {samples:,} samples.".format(
+            label=label, samples=X.shape[0]
+        )
+    )
     feature_scaler = StandardScaler().fit(X)
     X_scaled = feature_scaler.transform(X)
 
@@ -439,6 +480,8 @@ def main() -> None:
         )
         for label, factory in MODEL_FACTORIES.items()
     ]
+
+    print("Cross-validation complete for all models. Evaluating best performer.")
 
     def _selection_score(result: dict) -> float:
         value = result.get("overall_r2_mean")
