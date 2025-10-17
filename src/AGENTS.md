@@ -20,7 +20,7 @@
 - `0.12-investigate-harmonic-semiannual-trend.py`: Inspect diagnostic outputs from the harmonic semiannual trend fits.
 - `0.13-merge-bioclim-with-harmonic-semiannual-trend.py`: Combine harmonic semiannual trend fits with resampled bioclim variables.
 - `0.14-analyse-harmonic-bioclim-correlations.py`: Quantify correlations between harmonic semiannual trend outputs and bioclim variables.
-- `0.15-train-bioclim-to-harmonic-model.py`: Train and compare random forest and MLP models that predict harmonic semiannual trend parameters from bioclim features with cross-validation and circular phase handling.
+- `0.15-train-bioclim-to-harmonic-model.py`: Train a spatially blocked random forest that predicts harmonic semiannual trend parameters from bioclim features, handles circular phases, logs incremental CV/OOB curves, and saves feature scaling metadata.
 - `1.01-fit-double-logistic-wrap.py`: Provide a reusable wrapper for double-logistic fitting.
 - `1.02-fit-double-logistic-to_scaled_ndvi.py`: Fit the double-logistic model to scaled NDVI inputs.
 - `1.03-fit-gaussia_to_ndvi.py`: Fit Gaussian curves to NDVI series.

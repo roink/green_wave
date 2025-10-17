@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Train models that map bioclim variables to harmonic semiannual trend parameters."""
+"""Train a spatially validated random forest that maps bioclim variables to harmonic parameters."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Iterable
 
 import numpy as np
 from joblib import dump
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import KFold
-from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import StandardScaler
+from tqdm.auto import tqdm
 
 from bioclim_model_utils import (
     PhaseTargetMetadata,
@@ -30,8 +30,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
 COMBINED_PATH = INTERMEDIATE_DIR / "ndvi_harmonic_semiannual_trend_bioclim_combined.npz"
 RANDOM_FOREST_MODEL_PATH = INTERMEDIATE_DIR / "bioclim_to_harmonic_random_forest.joblib"
-MLP_MODEL_PATH = INTERMEDIATE_DIR / "bioclim_to_harmonic_mlp.joblib"
 METRICS_PATH = INTERMEDIATE_DIR / "bioclim_to_harmonic_model_metrics.json"
+CV_CURVES_PATH = INTERMEDIATE_DIR / "bioclim_to_harmonic_random_forest_cv_curves.json"
 
 QUALITY_KEY = "harmonic_r_squared"
 AMPLITUDE_FEATURES = ["harmonic_amplitude_annual", "harmonic_amplitude_semiannual"]
@@ -41,6 +41,8 @@ PHASE_PERIODS = {
 }
 R2_THRESHOLD = 0.6
 N_SPLITS = 5
+FOREST_GROWTH_STAGES = [50, 100, 200, 400, 800]
+SPATIAL_TILE_DEGREES = 5.0
 
 
 @dataclass(frozen=True)
@@ -54,38 +56,6 @@ class PhaseTargetInfo:
     cos_index: int
     period: float
     raw_values: np.ndarray
-
-
-ModelFactory = Callable[[], object]
-
-
-MODEL_FACTORIES: dict[str, ModelFactory] = {
-    "random_forest": lambda: RandomForestRegressor(
-        n_estimators=400,
-        max_depth=None,
-        min_samples_leaf=2,
-        max_samples=0.8,
-        max_features=0.5,
-        random_state=42,
-        n_jobs=-1,
-    ),
-    "mlp": lambda: MLPRegressor(
-        hidden_layer_sizes=(256, 128),
-        activation="relu",
-        solver="adam",
-        learning_rate_init=0.001,
-        max_iter=400,
-        random_state=42,
-        early_stopping=True,
-        n_iter_no_change=20,
-        verbose=False,
-    ),
-}
-
-MODEL_SAVE_PATHS = {
-    "random_forest": RANDOM_FOREST_MODEL_PATH,
-    "mlp": MLP_MODEL_PATH,
-}
 
 
 def _json_ready(value):
@@ -129,7 +99,77 @@ def _compute_phase_metrics(
     return circular_r2, mae_days
 
 
-def _prepare_dataset():
+def _build_random_forest() -> RandomForestRegressor:
+    """Return a configured random forest regressor with warm-start support."""
+
+    return RandomForestRegressor(
+        n_estimators=FOREST_GROWTH_STAGES[0],
+        max_depth=None,
+        min_samples_leaf=2,
+        max_samples=0.8,
+        max_features=0.5,
+        bootstrap=True,
+        oob_score=True,
+        warm_start=True,
+        n_jobs=-1,
+        random_state=42,
+    )
+
+
+def _compute_spatial_groups(
+    latitudes: np.ndarray,
+    longitudes: np.ndarray,
+    base_mask: np.ndarray,
+    refinement_mask: np.ndarray | None,
+    tile_degrees: float,
+) -> np.ndarray:
+    """Compute 5°×5° spatial block IDs for each retained pixel."""
+
+    if latitudes.ndim != 1 or longitudes.ndim != 1:
+        raise ValueError(
+            "Latitude and longitude vectors are expected to be 1D arrays matching the grid axes."
+        )
+
+    lat_grid = np.repeat(latitudes[:, None], len(longitudes), axis=1)
+    lon_grid = np.repeat(longitudes[None, :], len(latitudes), axis=0)
+    flat_lat = lat_grid.reshape(-1)[base_mask]
+    flat_lon = lon_grid.reshape(-1)[base_mask]
+    if refinement_mask is not None:
+        flat_lat = flat_lat[refinement_mask]
+        flat_lon = flat_lon[refinement_mask]
+
+    lat_bins = np.floor((flat_lat + 90.0) / tile_degrees).astype(int)
+    lon_bins = np.floor((flat_lon + 180.0) / tile_degrees).astype(int)
+    group_ids = lat_bins * 1000 + lon_bins
+    return group_ids
+
+
+def _describe_groups(group_ids: np.ndarray) -> None:
+    """Print summary statistics for the spatial group assignments."""
+
+    unique_groups, counts = np.unique(group_ids, return_counts=True)
+    print(
+        "Constructed {n_groups} spatial tiles (size {tile}°); "
+        "median {median:.0f} samples per tile (min {min_count}, max {max_count}).".format(
+            n_groups=len(unique_groups),
+            tile=SPATIAL_TILE_DEGREES,
+            median=float(np.median(counts)),
+            min_count=int(counts.min()),
+            max_count=int(counts.max()),
+        )
+    )
+
+
+def _prepare_dataset() -> tuple[
+    np.ndarray,
+    np.ndarray,
+    list[str],
+    list[str],
+    dict[str, PhaseTargetInfo],
+    list[str],
+    list[str],
+    np.ndarray,
+]:
     """Load the harmonic bundle and construct ML-ready matrices."""
 
     print(f"Loading combined harmonic and bioclim dataset from {COMBINED_PATH}.")
@@ -137,7 +177,13 @@ def _prepare_dataset():
         COMBINED_PATH,
         target_array_key="harmonic_parameters",
         target_names_key="harmonic_parameter_names",
-        extra_keys=[QUALITY_KEY, *AMPLITUDE_FEATURES, *PHASE_PERIODS],
+        extra_keys=[
+            QUALITY_KEY,
+            *AMPLITUDE_FEATURES,
+            *PHASE_PERIODS,
+            "latitudes",
+            "longitudes",
+        ],
         missing_file_hint="Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first.",
     )
 
@@ -155,8 +201,7 @@ def _prepare_dataset():
         )
     else:
         print(
-            f"Warning: quality layer '{QUALITY_KEY}' missing from combined dataset;"
-            " proceeding without an R² filter."
+            f"Warning: quality layer '{QUALITY_KEY}' missing from combined dataset; proceeding without an R² filter."
         )
 
     X, y_params, base_mask = prepare_regression_samples(
@@ -195,6 +240,21 @@ def _prepare_dataset():
         y_params = y_params[valid_mask]
         for key in list(extras_masked):
             extras_masked[key] = extras_masked[key][valid_mask]
+
+    latitudes_raw = bundle.extras.get("latitudes")
+    longitudes_raw = bundle.extras.get("longitudes")
+    if latitudes_raw is None or longitudes_raw is None:
+        raise KeyError(
+            "Latitude/longitude vectors are required for spatial cross-validation but were not found in the bundle."
+        )
+    group_ids = _compute_spatial_groups(
+        np.asarray(latitudes_raw, dtype=np.float32),
+        np.asarray(longitudes_raw, dtype=np.float32),
+        base_mask,
+        valid_mask,
+        SPATIAL_TILE_DEGREES,
+    )
+    _describe_groups(group_ids)
 
     target_names = list(bundle.target_names)
     direct_target_names = list(target_names)
@@ -266,33 +326,46 @@ def _prepare_dataset():
         phase_infos,
         log1p_targets,
         bundle.bioclim_names,
+        group_ids,
     )
 
 
-def _cross_validate_model(
-    label: str,
-    factory: ModelFactory,
+def _aggregate(values: Iterable[float]) -> tuple[float, float]:
+    arr = np.asarray(list(values), dtype=float)
+    if arr.size == 0:
+        return float("nan"), float("nan")
+    return float(np.nanmean(arr)), float(np.nanstd(arr))
+
+
+def _cross_validate_random_forest(
     X: np.ndarray,
     y: np.ndarray,
+    group_ids: np.ndarray,
     target_names: list[str],
     direct_target_names: list[str],
     phase_infos: dict[str, PhaseTargetInfo],
     log1p_targets: list[str],
-) -> dict:
-    """Evaluate ``factory`` using K-fold CV and return aggregated metrics."""
+) -> tuple[dict, list[dict]]:
+    """Evaluate the configured random forest with GroupKFold CV."""
 
-    print(f"Evaluating {label} with {N_SPLITS}-fold cross-validation.")
-    kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
+    print(
+        f"Evaluating random forest with {N_SPLITS}-fold spatial GroupKFold cross-validation."
+    )
+    splitter = GroupKFold(n_splits=N_SPLITS)
+    splits = list(splitter.split(X, y, groups=group_ids))
+    stage_records: dict[int, list[dict[str, float]]] = {
+        stage: [] for stage in FOREST_GROWTH_STAGES
+    }
 
     direct_indices = [target_names.index(name) for name in direct_target_names]
-    direct_metrics = {
-        name: {"r2": [], "mae": []} for name in direct_target_names
-    }
+    direct_metrics = {name: {"r2": [], "mae": []} for name in direct_target_names}
     phase_metrics = {
         name: {"circular_r2": [], "circular_mae": []} for name in phase_infos
     }
 
-    for fold, (train_idx, test_idx) in enumerate(kf.split(X), start=1):
+    for fold, (train_idx, test_idx) in enumerate(
+        tqdm(splits, desc="GroupKFold CV", unit="fold", leave=False), start=1
+    ):
         print(
             f"  Fold {fold}/{N_SPLITS}: train={len(train_idx):,} samples, test={len(test_idx):,} samples."
         )
@@ -310,52 +383,86 @@ def _cross_validate_model(
         )
         y_train_transformed = y_transform.transform(y_train)
 
-        estimator = factory()
-        estimator.fit(X_train_scaled, y_train_transformed)
+        estimator = _build_random_forest()
+        increment_iterator = tqdm(
+            FOREST_GROWTH_STAGES,
+            desc=f"    Fold {fold} forest growth",
+            unit="stage",
+            leave=False,
+        )
+        for stage in increment_iterator:
+            increment_iterator.set_postfix_str(f"trees={stage}")
+            estimator.set_params(n_estimators=stage)
+            estimator.fit(X_train_scaled, y_train_transformed)
+            predictions = estimator.predict(X_test_scaled)
+            predictions = np.asarray(predictions, dtype=float)
+            if predictions.ndim == 1:
+                predictions = predictions.reshape(-1, 1)
+            predictions = y_transform.inverse_transform(predictions)
 
-        predictions = estimator.predict(X_test_scaled)
-        predictions = np.asarray(predictions, dtype=float)
-        if predictions.ndim == 1:
-            predictions = predictions.reshape(-1, 1)
-        predictions = y_transform.inverse_transform(predictions)
-
-        for idx, name in zip(direct_indices, direct_target_names):
-            truth = y_test[:, idx]
-            pred = predictions[:, idx]
-            try:
-                r2 = r2_score(truth, pred)
-            except ValueError:
-                r2 = float("nan")
-            mae = mean_absolute_error(truth, pred)
-            direct_metrics[name]["r2"].append(float(r2))
-            direct_metrics[name]["mae"].append(float(mae))
-
-        for phase_name, info in phase_infos.items():
-            sin_pred = predictions[:, info.sin_index]
-            cos_pred = predictions[:, info.cos_index]
-            true_values = info.raw_values[test_idx]
-            circular_r2, circular_mae = _compute_phase_metrics(
-                info.period, sin_pred, cos_pred, true_values
+            overall_r2 = r2_score(
+                y_test, predictions, multioutput="variance_weighted"
             )
-            phase_metrics[phase_name]["circular_r2"].append(float(circular_r2))
-            phase_metrics[phase_name]["circular_mae"].append(float(circular_mae))
-
-        fold_r2_values = []
-        for metrics in direct_metrics.values():
-            if metrics["r2"]:
-                fold_r2_values.append(metrics["r2"][-1])
-        for metrics in phase_metrics.values():
-            if metrics["circular_r2"]:
-                fold_r2_values.append(metrics["circular_r2"][-1])
-        if fold_r2_values:
+            overall_mae = mean_absolute_error(y_test, predictions)
+            oob_score = getattr(estimator, "oob_score_", float("nan"))
+            stage_records[stage].append(
+                {
+                    "fold": float(fold),
+                    "overall_r2": float(overall_r2),
+                    "overall_mae": float(overall_mae),
+                    "oob_score": float(oob_score) if np.isfinite(oob_score) else float("nan"),
+                }
+            )
             print(
-                "    Fold {fold} mean R² across targets: {score:.3f}.".format(
-                    fold=fold, score=float(np.nanmean(fold_r2_values))
+                "    Fold {fold}: {stage} trees -> CV R²={r2:.3f}, MAE={mae:.3f}, OOB={oob:.3f}.".format(
+                    fold=fold,
+                    stage=stage,
+                    r2=float(overall_r2),
+                    mae=float(overall_mae),
+                    oob=float(oob_score) if np.isfinite(oob_score) else float("nan"),
+                )
+            )
+
+            if stage != FOREST_GROWTH_STAGES[-1]:
+                continue
+
+            for idx, name in zip(direct_indices, direct_target_names):
+                truth = y_test[:, idx]
+                pred = predictions[:, idx]
+                try:
+                    r2_value = r2_score(truth, pred)
+                except ValueError:
+                    r2_value = float("nan")
+                mae_value = mean_absolute_error(truth, pred)
+                direct_metrics[name]["r2"].append(float(r2_value))
+                direct_metrics[name]["mae"].append(float(mae_value))
+
+            for phase_name, info in phase_infos.items():
+                sin_pred = predictions[:, info.sin_index]
+                cos_pred = predictions[:, info.cos_index]
+                true_values = info.raw_values[test_idx]
+                circular_r2, circular_mae = _compute_phase_metrics(
+                    info.period, sin_pred, cos_pred, true_values
+                )
+                phase_metrics[phase_name]["circular_r2"].append(float(circular_r2))
+                phase_metrics[phase_name]["circular_mae"].append(float(circular_mae))
+
+        fold_final_scores = [
+            record["overall_r2"]
+            for record in stage_records[FOREST_GROWTH_STAGES[-1]]
+            if record["fold"] == float(fold)
+        ]
+        if fold_final_scores:
+            print(
+                "    Fold {fold} summary: final-stage mean R²={score:.3f}.".format(
+                    fold=fold,
+                    score=float(np.nanmean(fold_final_scores)),
                 )
             )
 
     def _mean(values: list[float]) -> float:
-        return float(np.nanmean(values)) if values else float("nan")
+        arr = np.asarray(values, dtype=float)
+        return float(np.nanmean(arr)) if arr.size else float("nan")
 
     per_target_summary = {
         name: {
@@ -386,7 +493,7 @@ def _cross_validate_model(
     ]
 
     summary = {
-        "model": label,
+        "model": "random_forest",
         "overall_r2_mean": overall_r2_mean,
         "non_phase_r2_mean": _mean(non_phase_r2),
         "non_phase_mae_mean": _mean(non_phase_mae),
@@ -397,14 +504,41 @@ def _cross_validate_model(
     }
 
     print(
-        f"  {label} cross-validation complete: overall mean R²={overall_r2_mean:.3f}."
+        f"  Cross-validation complete: overall mean R²={overall_r2_mean:.3f} at {FOREST_GROWTH_STAGES[-1]} trees."
     )
-    return summary
+
+    stage_curves: list[dict[str, object]] = []
+    for stage, records in stage_records.items():
+        mean_r2, std_r2 = _aggregate(record["overall_r2"] for record in records)
+        mean_mae, std_mae = _aggregate(record["overall_mae"] for record in records)
+        mean_oob, std_oob = _aggregate(record["oob_score"] for record in records)
+        stage_curves.append(
+            {
+                "n_estimators": stage,
+                "mean_overall_r2": mean_r2,
+                "std_overall_r2": std_r2,
+                "mean_overall_mae": mean_mae,
+                "std_overall_mae": std_mae,
+                "mean_oob_score": mean_oob,
+                "std_oob_score": std_oob,
+                "records": records,
+            }
+        )
+        print(
+            "    Stage {stage}: mean CV R²={mean_r2:.3f}±{std_r2:.3f}, "
+            "mean OOB={mean_oob:.3f}±{std_oob:.3f}.".format(
+                stage=stage,
+                mean_r2=mean_r2,
+                std_r2=std_r2,
+                mean_oob=mean_oob,
+                std_oob=std_oob,
+            )
+        )
+
+    return summary, stage_curves
 
 
-def _train_full_model(
-    label: str,
-    factory: ModelFactory,
+def _train_full_random_forest(
     X: np.ndarray,
     y: np.ndarray,
     target_names: list[str],
@@ -413,11 +547,11 @@ def _train_full_model(
     phase_infos: dict[str, PhaseTargetInfo],
     bioclim_names: list[str],
 ) -> dict:
-    """Fit ``factory`` on the full dataset and package inference metadata."""
+    """Fit the random forest on the full dataset and package inference metadata."""
 
     print(
-        "Training final {label} model on {samples:,} samples.".format(
-            label=label, samples=X.shape[0]
+        "Training final random forest model on {samples:,} samples.".format(
+            samples=X.shape[0]
         )
     )
     feature_scaler = StandardScaler().fit(X)
@@ -430,8 +564,26 @@ def _train_full_model(
     )
     y_transformed = y_transform.transform(y)
 
-    estimator = factory()
-    estimator.fit(X_scaled, y_transformed)
+    estimator = _build_random_forest()
+    training_curve: list[dict[str, float]] = []
+    for stage in tqdm(
+        FOREST_GROWTH_STAGES,
+        desc="Full-data forest growth",
+        unit="stage",
+        leave=False,
+    ):
+        estimator.set_params(n_estimators=stage)
+        estimator.fit(X_scaled, y_transformed)
+        oob_score = getattr(estimator, "oob_score_", float("nan"))
+        training_curve.append(
+            {
+                "n_estimators": stage,
+                "oob_score": float(oob_score) if np.isfinite(oob_score) else float("nan"),
+            }
+        )
+        print(
+            f"  Full-data fit: {stage} trees complete with OOB R²={float(oob_score):.3f}."
+        )
 
     phase_metadata = {
         name: PhaseTargetMetadata(info.sin_name, info.cos_name, info.period)
@@ -439,7 +591,7 @@ def _train_full_model(
     }
 
     return {
-        "model_label": label,
+        "model_label": "random_forest",
         "model": estimator,
         "feature_scaler": feature_scaler,
         "target_transform": y_transform,
@@ -450,6 +602,7 @@ def _train_full_model(
         },
         "log1p_targets": list(log1p_targets),
         "bioclim_features": bioclim_names,
+        "training_curve": training_curve,
     }
 
 
@@ -462,6 +615,7 @@ def main() -> None:
         phase_infos,
         log1p_targets,
         bioclim_names,
+        group_ids,
     ) = _prepare_dataset()
 
     if X.shape[0] < 1000:
@@ -469,52 +623,31 @@ def main() -> None:
             "Warning: fewer than 1000 samples available after filtering. Results may be noisy."
         )
 
-    cv_results = [
-        _cross_validate_model(
-            label,
-            factory,
-            X,
-            y,
-            target_names,
-            direct_target_names,
-            phase_infos,
-            log1p_targets,
-        )
-        for label, factory in MODEL_FACTORIES.items()
-    ]
-
-    print("Cross-validation complete for all models. Evaluating best performer.")
-
-    def _selection_score(result: dict) -> float:
-        value = result.get("overall_r2_mean")
-        if value is None or np.isnan(value):
-            return float("-inf")
-        return float(value)
-
-    best_result = max(cv_results, key=_selection_score)
-    print(
-        "Best performing model: {model} with overall mean R²={score:.3f}.".format(
-            model=best_result["model"], score=best_result["overall_r2_mean"]
-        )
+    cv_summary, stage_curves = _cross_validate_random_forest(
+        X,
+        y,
+        group_ids,
+        target_names,
+        direct_target_names,
+        phase_infos,
+        log1p_targets,
     )
+
+    print("Cross-validation complete; proceeding to full-data training.")
 
     INTERMEDIATE_DIR.mkdir(parents=True, exist_ok=True)
 
-    for label, factory in MODEL_FACTORIES.items():
-        artifact = _train_full_model(
-            label,
-            factory,
-            X,
-            y,
-            target_names,
-            log1p_targets,
-            direct_target_names,
-            phase_infos,
-            bioclim_names,
-        )
-        path = MODEL_SAVE_PATHS[label]
-        dump(artifact, path)
-        print(f"Saved {label} model artefact to {path}.")
+    artifact = _train_full_random_forest(
+        X,
+        y,
+        target_names,
+        log1p_targets,
+        direct_target_names,
+        phase_infos,
+        bioclim_names,
+    )
+    dump(artifact, RANDOM_FOREST_MODEL_PATH)
+    print(f"Saved random forest model artefact to {RANDOM_FOREST_MODEL_PATH}.")
 
     metrics_payload = _json_ready(
         {
@@ -524,15 +657,23 @@ def main() -> None:
             "targets": target_names,
             "direct_targets": direct_target_names,
             "phase_targets": list(phase_infos),
-            "models": cv_results,
-            "best_model": best_result["model"],
+            "model": cv_summary,
+            "cv_stage_curves": stage_curves,
+            "training_curve": artifact["training_curve"],
+            "spatial_tile_degrees": SPATIAL_TILE_DEGREES,
+            "group_count": int(np.unique(group_ids).size),
         }
     )
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics_payload, fp, indent=2)
-
     print(f"Wrote cross-validation metrics to {METRICS_PATH}.")
-    print("Harmonic training routine complete.")
+
+    cv_curves_payload = _json_ready(stage_curves)
+    with CV_CURVES_PATH.open("w", encoding="utf-8") as fp:
+        json.dump(cv_curves_payload, fp, indent=2)
+    print(f"Saved CV curve data to {CV_CURVES_PATH}.")
+
+    print("Harmonic random forest training routine complete.")
 
 
 if __name__ == "__main__":
