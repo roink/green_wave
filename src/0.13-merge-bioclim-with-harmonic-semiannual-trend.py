@@ -12,6 +12,7 @@ import numpy as np
 from bioclim_alignment_utils import (
     NdviGridSpec,
     RAW_BIOCLIM_DIR,
+    grid_from_h5,
     list_bioclim_files,
     resample_bioclim_layers,
 )
@@ -26,7 +27,9 @@ OUTPUT_PATH = (
     INTERMEDIATE_DIR / "ndvi_harmonic_semiannual_trend_bioclim_combined.npz"
 )
 
-GRID_SPEC = NdviGridSpec(row_start=320, row_end=1198, col_start=3335, col_end=4553)
+FALLBACK_GRID_SPEC = NdviGridSpec(
+    row_start=320, row_end=1198, col_start=3335, col_end=4553
+)
 
 HARMONIC_EXPORTS: list[tuple[str, str]] = [
     ("parameters", "harmonic_parameters"),
@@ -80,47 +83,48 @@ def _summarise_array(label: str, array: np.ndarray) -> None:
     )
 
 
-def _load_harmonic_subset(path: Path, grid: NdviGridSpec) -> tuple[dict[str, np.ndarray], list[str] | None]:
-    if not path.exists():
-        raise FileNotFoundError(
-            "Harmonic semiannual trend file missing. "
-            f"Expected {path}. Run 0.11-fit-harmonic-models.py first."
-        )
-
+def _load_harmonic_subset(
+    h5f: h5py.File, grid: NdviGridSpec
+) -> tuple[dict[str, np.ndarray], list[str] | None]:
     row_slice, col_slice = grid.slices()
     outputs: dict[str, np.ndarray] = {}
     parameter_names: list[str] | None = None
 
-    with h5py.File(path, "r") as h5f:
-        for dataset_name, output_key in HARMONIC_EXPORTS:
-            if dataset_name not in h5f:
-                raise KeyError(
-                    f"Dataset '{dataset_name}' not found in {path.name}."
+    for dataset_name, output_key in HARMONIC_EXPORTS:
+        if dataset_name not in h5f:
+            raise KeyError(
+                f"Dataset '{dataset_name}' not found in {Path(h5f.filename).name}."
+            )
+        dataset = h5f[dataset_name]
+        if dataset.shape[0] < grid.row_end or dataset.shape[1] < grid.col_end:
+            raise ValueError(
+                "Dataset '{name}' is smaller than the requested NDVI subset: "
+                "{current} vs {expected}.".format(
+                    name=dataset_name,
+                    current=dataset.shape[:2],
+                    expected=grid.shape,
                 )
-            dataset = h5f[dataset_name]
-            if dataset.shape[0] < grid.row_end or dataset.shape[1] < grid.col_end:
-                raise ValueError(
-                    "Dataset '{name}' is smaller than the requested NDVI subset: "
-                    "{current} vs {expected}.".format(
-                        name=dataset_name,
-                        current=dataset.shape[:2],
-                        expected=grid.shape,
-                    )
-                )
-            if dataset.ndim == 2:
-                subset = dataset[row_slice, col_slice]
-            elif dataset.ndim == 3:
-                subset = dataset[row_slice, col_slice, :]
-            else:
-                raise ValueError(
-                    f"Dataset '{dataset_name}' has unsupported dimensions {dataset.shape}."
-                )
-            array = np.asarray(subset)
-            outputs[output_key] = array
-            _summarise_array(output_key, array)
+            )
+        if dataset.ndim == 2:
+            subset = dataset[row_slice, col_slice]
+        elif dataset.ndim == 3:
+            subset = dataset[row_slice, col_slice, :]
+        else:
+            raise ValueError(
+                f"Dataset '{dataset_name}' has unsupported dimensions {dataset.shape}."
+            )
+        array = np.asarray(subset)
+        if dataset_name == "num_observations":
+            array = array.astype(np.uint16, copy=False)
+        elif np.issubdtype(array.dtype, np.floating):
+            array = array.astype(np.float32, copy=False)
+        outputs[output_key] = array
+        _summarise_array(output_key, array)
 
-            if dataset_name == "parameters":
-                parameter_names = _decode_parameter_names(dataset.attrs.get("parameter_names"))
+        if dataset_name == "parameters":
+            parameter_names = _decode_parameter_names(
+                dataset.attrs.get("parameter_names")
+            )
 
     print(
         f"Loaded harmonic datasets: {', '.join(key for _, key in HARMONIC_EXPORTS)}"
@@ -129,7 +133,13 @@ def _load_harmonic_subset(path: Path, grid: NdviGridSpec) -> tuple[dict[str, np.
 
 
 def main() -> None:
-    bioclim_files = list_bioclim_files()
+    if not HARMONIC_PATH.exists():
+        raise FileNotFoundError(
+            "Harmonic semiannual trend file missing. "
+            f"Expected {HARMONIC_PATH}. Run 0.11-fit-harmonic-models.py first."
+        )
+
+    bioclim_files = list_bioclim_files(RAW_BIOCLIM_DIR)
     if not bioclim_files:
         raise FileNotFoundError(
             "No WorldClim bioclim files found. Expected GeoTIFFs in "
@@ -137,9 +147,14 @@ def main() -> None:
         )
     print(f"Found {len(bioclim_files)} bioclim layers to resample.")
 
-    harmonic_data, parameter_names = _load_harmonic_subset(HARMONIC_PATH, GRID_SPEC)
-    bioclim_stack, bioclim_names = resample_bioclim_layers(bioclim_files, GRID_SPEC)
-    latitudes, longitudes = GRID_SPEC.coordinate_vectors()
+    with h5py.File(HARMONIC_PATH, "r") as h5f:
+        grid_spec = grid_from_h5(h5f, FALLBACK_GRID_SPEC)
+        harmonic_data, parameter_names = _load_harmonic_subset(h5f, grid_spec)
+
+    bioclim_stack, bioclim_names = resample_bioclim_layers(
+        bioclim_files, grid_spec
+    )
+    latitudes, longitudes = grid_spec.coordinate_vectors()
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, np.ndarray] = {
@@ -151,6 +166,19 @@ def main() -> None:
     }
     if parameter_names is not None:
         payload["harmonic_parameter_names"] = np.array(parameter_names, dtype=object)
+    payload["harmonic_layer_names"] = np.array(
+        [
+            "r_squared",
+            "adjusted_r_squared",
+            "aic",
+            "amplitude_annual",
+            "phase_annual_days",
+            "amplitude_semiannual",
+            "phase_semiannual_days",
+            "num_observations",
+        ],
+        dtype=object,
+    )
 
     np.savez_compressed(OUTPUT_PATH, **payload)
     print(f"Saved combined harmonic dataset to {OUTPUT_PATH}.")

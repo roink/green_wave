@@ -10,6 +10,7 @@ from typing import Iterable
 import numpy as np
 from affine import Affine
 from rasterio import open as rio_open
+from rasterio.env import Env
 from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
@@ -107,40 +108,104 @@ def resample_bioclim_layers(
     stacked_layers: list[np.ndarray] = []
     names: list[str] = []
 
-    for idx, path in layers:
-        description = BIOCLIM_DESCRIPTIONS.get(idx, f"BIO{idx:02d}")
-        print(f"Resampling {path.name} ({description}) …")
-        with rio_open(path) as src:
-            destination = np.full((rows, cols), np.nan, dtype=np.float32)
-            reproject(
-                source=src.read(1),
-                destination=destination,
-                src_transform=src.transform,
-                src_crs=src.crs,
-                dst_transform=target_transform,
-                dst_crs=dst_crs,
-                resampling=Resampling.bilinear,
-                src_nodata=src.nodata,
-                dst_nodata=np.nan,
-            )
-        valid = destination[~np.isnan(destination)]
-        if valid.size == 0:
-            print("  → no valid pixels after resampling")
-        else:
-            print(
-                "  → valid pixels: {0:,}; min={1:.3f}, median={2:.3f}, max={3:.3f}".format(
-                    valid.size,
-                    float(np.min(valid)),
-                    float(np.median(valid)),
-                    float(np.max(valid)),
+    with Env(GDAL_NUM_THREADS="ALL_CPUS"):
+        for idx, path in layers:
+            description = BIOCLIM_DESCRIPTIONS.get(idx, f"BIO{idx:02d}")
+            print(f"Resampling {path.name} ({description}) …")
+            with rio_open(path) as src:
+                destination = np.full((rows, cols), np.nan, dtype=np.float32)
+                reproject(
+                    source=src.read(1),
+                    destination=destination,
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=target_transform,
+                    dst_crs=dst_crs,
+                    resampling=Resampling.bilinear,
+                    src_nodata=src.nodata,
+                    dst_nodata=np.nan,
                 )
-            )
-        stacked_layers.append(destination.astype(np.float32))
-        names.append(description)
+            valid = destination[~np.isnan(destination)]
+            if valid.size == 0:
+                print("  → no valid pixels after resampling")
+            else:
+                print(
+                    "  → valid pixels: {0:,}; min={1:.3f}, median={2:.3f}, max={3:.3f}".format(
+                        valid.size,
+                        float(np.min(valid)),
+                        float(np.median(valid)),
+                        float(np.max(valid)),
+                    )
+                )
+            stacked_layers.append(destination.astype(np.float32))
+            names.append(description)
 
     stack = np.stack(stacked_layers, axis=0)
+    if stack.shape[1:] != grid.shape:
+        raise ValueError(
+            "Resampled stack shape mismatch: got {0}, expected {1}.".format(
+                stack.shape[1:], grid.shape
+            )
+        )
+    lat_max = 90 - grid.row_start * grid.resolution_deg
+    lat_min = lat_max - grid.shape[0] * grid.resolution_deg
+    lon_min = -180 + grid.col_start * grid.resolution_deg
+    lon_max = lon_min + grid.shape[1] * grid.resolution_deg
+    if not (-90 <= lat_min <= 90 and -90 <= lat_max <= 90):
+        raise ValueError(
+            f"Latitude bounds look incorrect: [{lat_min}, {lat_max}] degrees."
+        )
+    if not (-180 <= lon_min <= 180 and -180 <= lon_max <= 180):
+        raise ValueError(
+            f"Longitude bounds look incorrect: [{lon_min}, {lon_max}] degrees."
+        )
     print(f"Resampled {stack.shape[0]} bioclim layers to shape {stack.shape[1:]}.")
     return stack, names
+
+
+def grid_from_h5(h5, fallback: NdviGridSpec) -> NdviGridSpec:
+    """Extract an `NdviGridSpec` from an open HDF5 file if metadata is provided."""
+
+    attrs = None
+    grid_node = getattr(h5, "get", None)
+    if callable(grid_node):
+        candidate = h5.get("grid_spec", None)
+        attrs = getattr(candidate, "attrs", None)
+    if attrs is None and hasattr(h5, "attrs"):
+        # Wrap file-level attrs for a unified access pattern below.
+        class _AttrWrapper:
+            def __init__(self, h5_attrs):
+                self._attrs = h5_attrs
+
+            def __getitem__(self, key):
+                return self._attrs[key]
+
+            def get(self, key, default=None):
+                return self._attrs.get(key, default)
+
+        attrs = _AttrWrapper(h5.attrs)
+    if attrs is None:
+        return fallback
+
+    try:
+        row_start = int(attrs["row_start"])
+        row_end = int(attrs["row_end"])
+        col_start = int(attrs["col_start"])
+        col_end = int(attrs["col_end"])
+    except (KeyError, TypeError):
+        return fallback
+
+    try:
+        resolution = float(attrs.get("resolution_deg", fallback.resolution_deg))
+    except AttributeError:
+        resolution = fallback.resolution_deg
+    return NdviGridSpec(
+        row_start=row_start,
+        row_end=row_end,
+        col_start=col_start,
+        col_end=col_end,
+        resolution_deg=resolution,
+    )
 
 
 def ensure_bioclim_directory(directory: Path | None = None) -> Path:
@@ -160,6 +225,7 @@ __all__ = [
     "NdviGridSpec",
     "RAW_BIOCLIM_DIR",
     "ensure_bioclim_directory",
+    "grid_from_h5",
     "list_bioclim_files",
     "resample_bioclim_layers",
 ]

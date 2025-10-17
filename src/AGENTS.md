@@ -16,6 +16,8 @@
 - `0.083-explore-warped-sine.py`: Investigate warped sine fits as an alternative seasonal model.
 - `0.09-fit-cyclic-gaussian.py`: Experiment with cyclic Gaussian fits to NDVI data.
 - `0.10-render-ndvi-irg-frames.py`: Render false-colour frames using fitted NDVI parameters.
+- `0.11-fit-harmonic-models.py`: Fit harmonic (annual and semiannual) models across the NDVI grid.
+- `0.12-investigate-harmonic-semiannual-trend.py`: Inspect diagnostic outputs from the harmonic semiannual trend fits.
 - `0.13-merge-bioclim-with-harmonic-semiannual-trend.py`: Combine harmonic semiannual trend fits with resampled bioclim variables.
 - `1.01-fit-double-logistic-wrap.py`: Provide a reusable wrapper for double-logistic fitting.
 - `1.02-fit-double-logistic-to_scaled_ndvi.py`: Fit the double-logistic model to scaled NDVI inputs.
@@ -30,7 +32,7 @@
 - `download_insolation_data.py`: Script to download supporting insolation datasets.
 - `explore-double-sawtooth.py`: Investigate the double sawtooth seasonal representation.
 - `logging_setup.py`: Utility for mirroring stdout/stderr to deterministic log files via `initialize_script_logging`.
-- `bioclim_alignment_utils.py`: Utilities for listing and resampling WorldClim bioclim rasters onto the NDVI analysis grid.
+- `bioclim_alignment_utils.py`: Utilities for listing and resampling WorldClim bioclim rasters onto the NDVI analysis grid and reading grid metadata from harmonic fit exports.
 - `ndvi_analysis_utils.py`: Shared NDVI preprocessing, smoothing, and plotting helpers.
 - `process_priority.py`: Helper to lower worker process priority during parallel processing.
 

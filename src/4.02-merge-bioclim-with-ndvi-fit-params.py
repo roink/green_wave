@@ -44,7 +44,7 @@ def _load_ndvi_fit_cube() -> np.ndarray:
     with np.load(NDVI_FIT_PATH) as data:
         if "ndvi_fit_all" not in data:
             raise KeyError("ndvi_fit_params.npz does not contain 'ndvi_fit_all'.")
-        cube = data["ndvi_fit_all"]
+        cube = data["ndvi_fit_all"].astype(np.float32)
     if cube.shape[:2] != GRID_SPEC.shape:
         raise ValueError(
             f"NDVI cube shape {cube.shape[:2]} does not match expected {GRID_SPEC.shape}."
@@ -56,7 +56,7 @@ def _load_ndvi_fit_cube() -> np.ndarray:
 
 
 def main() -> None:
-    bioclim_files = list_bioclim_files()
+    bioclim_files = list_bioclim_files(RAW_BIOCLIM_DIR)
     if not bioclim_files:
         raise FileNotFoundError(
             "No WorldClim bioclim files found. Expected GeoTIFFs in "
