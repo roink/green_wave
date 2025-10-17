@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from dataclasses import dataclass
+import os
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 from typing import Sequence
 
@@ -33,6 +35,11 @@ OUTPUT_DIR = PROJECT_ROOT / "data" / "intermediate"
 PERIOD_DAYS = 365.2422
 OMEGA = 2 * np.pi / PERIOD_DAYS
 BLOCK_ROWS = 16
+# Parallelism knobs (can be overridden via environment variables)
+N_WORKERS = int(os.environ.get("GW_WORKERS", str(cpu_count() or 1)))
+NICENESS_DELTA = int(os.environ.get("GW_NICE_DELTA", "10"))
+COL_CHUNK = int(os.environ.get("GW_COL_CHUNK", "64"))
+
 MIN_OBSERVATIONS = 12
 
 # Representative lat/lon pairs for plotting
@@ -434,6 +441,187 @@ def _derived_from_params(
     return amp1, phase1, amp2, phase2
 
 
+# ----------------------------- multiprocessing -----------------------------
+# Workers open the NDVI stack independently (recommended by h5py for
+# read-mostly workloads) while the parent process performs all HDF5 writes.
+# Each worker is launched with a higher niceness so the job yields to
+# foreground work on the host.
+_WORKER_STATE: dict[str, object] = {}
+
+
+def _init_worker(
+    ndvi_path: str,
+    elapsed_days: np.ndarray,
+    time_center: float,
+    spec_dicts: list[dict],
+    niceness_delta: int,
+) -> None:
+    """Initialise per-process state for the worker pool."""
+
+    try:
+        os.nice(max(0, niceness_delta))
+    except OSError:
+        # Raising niceness may fail under some environments (e.g. Windows).
+        pass
+
+    h5file = h5py.File(ndvi_path, "r")
+    _WORKER_STATE["file"] = h5file
+    _WORKER_STATE["dataset"] = h5file["ndvi_stack"]
+
+    base_columns = _evaluate_columns(elapsed_days.astype(np.float64), float(time_center))
+    specs = [FitSpec(**spec_dict) for spec_dict in spec_dicts]
+    _WORKER_STATE["columns_by_spec"] = [
+        _design_matrix_columns(base_columns, spec) for spec in specs
+    ]
+    _WORKER_STATE["specs"] = specs
+    _WORKER_STATE["time_center"] = float(time_center)
+
+
+def _process_col_chunk(
+    task: tuple[int, int, int, int, dict[int, dict[int, int]]]
+) -> tuple[
+    int,
+    int,
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[np.ndarray],
+    list[tuple[int, dict]],
+]:
+    """Fit harmonic models for a rectangular subset of pixels."""
+
+    row_start, row_end, col_start, col_end, example_lookup = task
+    dataset = _WORKER_STATE["dataset"]
+    columns_by_spec: list[Sequence[np.ndarray]] = _WORKER_STATE["columns_by_spec"]
+    specs: list[FitSpec] = _WORKER_STATE["specs"]
+
+    data_block = np.asarray(dataset[:, row_start:row_end, col_start:col_end])
+    _, block_rows, block_cols = data_block.shape
+
+    params = [
+        np.full((block_rows, block_cols, spec.num_params), np.nan, dtype=np.float32)
+        for spec in specs
+    ]
+    r_squared = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+    adj_r_squared = [
+        np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs
+    ]
+    aic = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+    n_obs = [np.zeros((block_rows, block_cols), dtype=np.int16) for _ in specs]
+    amp1 = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+    phase1 = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+    amp2 = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+    phase2 = [np.full((block_rows, block_cols), np.nan, dtype=np.float32) for _ in specs]
+
+    examples: list[tuple[int, dict]] = []
+
+    for row_idx in range(block_rows):
+        row_series = data_block[:, row_idx, :]
+        global_row = row_start + row_idx
+        lookup_for_row = example_lookup.get(global_row, {})
+        for col_idx in range(block_cols):
+            series = row_series[:, col_idx]
+            results = [
+                _fit_harmonic(series, columns)
+                for columns in columns_by_spec
+            ]
+
+            for spec_idx, (spec, result) in enumerate(zip(specs, results)):
+                params[spec_idx][row_idx, col_idx, :] = result.params
+                r_squared[spec_idx][row_idx, col_idx] = result.r_squared
+                adj_r_squared[spec_idx][row_idx, col_idx] = result.adj_r_squared
+                aic[spec_idx][row_idx, col_idx] = result.aic
+                n_obs[spec_idx][row_idx, col_idx] = result.n_obs
+                amp1_val, phase1_val, amp2_val, phase2_val = _derived_from_params(
+                    result.params, spec
+                )
+                amp1[spec_idx][row_idx, col_idx] = np.float32(amp1_val)
+                phase1[spec_idx][row_idx, col_idx] = np.float32(phase1_val)
+                amp2[spec_idx][row_idx, col_idx] = np.float32(amp2_val)
+                phase2[spec_idx][row_idx, col_idx] = np.float32(phase2_val)
+
+            global_col = col_start + col_idx
+            example_col_lookup = lookup_for_row.get(global_col)
+            if example_col_lookup is not None:
+                example_payload = {
+                    "series": np.array(series, dtype=np.float32),
+                    "fits": {
+                        spec.name: {
+                            "params": result.params,
+                            "include_semiannual": spec.include_semiannual,
+                            "include_trend": spec.include_trend,
+                            "r_squared": result.r_squared,
+                            "adj_r_squared": result.adj_r_squared,
+                            "aic": result.aic,
+                            "n_obs": result.n_obs,
+                        }
+                        for spec, result in zip(specs, results)
+                    },
+                }
+                examples.append((example_col_lookup, example_payload))
+
+    return (
+        col_start,
+        col_end,
+        params,
+        r_squared,
+        adj_r_squared,
+        aic,
+        n_obs,
+        amp1,
+        phase1,
+        amp2,
+        phase2,
+        examples,
+    )
+
+
+def _collect_example_results(
+    dataset: h5py.Dataset,
+    base_columns: dict[str, np.ndarray],
+    time_center: float,
+    example_locations: Sequence[tuple[float, float]],
+    n_rows: int,
+    n_cols: int,
+) -> list[dict[str, object]]:
+    """Return fitted results for the requested example pixels."""
+
+    results: list[dict[str, object]] = []
+    for lat, lon in example_locations:
+        row_idx, col_idx = _latlon_to_indices(lat, lon, n_rows, n_cols)
+        series = np.asarray(dataset[:, row_idx, col_idx], dtype=np.float32)
+
+        fits: dict[str, dict[str, object]] = {}
+        for spec in FIT_SPECS:
+            columns = _design_matrix_columns(base_columns, spec)
+            fit_result = _fit_harmonic(series, columns)
+            fits[spec.name] = {
+                "params": fit_result.params,
+                "include_semiannual": spec.include_semiannual,
+                "include_trend": spec.include_trend,
+                "r_squared": fit_result.r_squared,
+                "adj_r_squared": fit_result.adj_r_squared,
+                "aic": fit_result.aic,
+                "n_obs": fit_result.n_obs,
+            }
+
+        results.append(
+            {
+                "lat": float(lat),
+                "lon": float(lon),
+                "series": series,
+                "fits": fits,
+            }
+        )
+
+    return results
+
+
 def _plot_examples(
     example_results: Sequence[dict[str, object]],
     all_dates: Sequence[pd.Timestamp],
@@ -527,249 +715,282 @@ def main() -> None:
 
     print(f"Loading NDVI stack from {DATA_PATH} …")
     with h5py.File(DATA_PATH, "r") as ndvi_file:
-        ndvi_stack = ndvi_file["ndvi_stack"]
+        ndvi_dataset = ndvi_file["ndvi_stack"]
         metadata = ndvi_file["metadata"][:]
+        stack_shape = ndvi_dataset.shape
 
         dates, elapsed_days = _build_time_vectors(metadata)
         time_center = float(np.nanmean(elapsed_days))
         base_columns = _evaluate_columns(elapsed_days, time_center)
 
-        with ExitStack() as stack:
-            contexts: list[ModelContext] = []
-            for spec in FIT_SPECS:
-                h5file = stack.enter_context(h5py.File(spec.output_path, "w"))
-                context = ModelContext(
+        print("Generating example plots before bulk fitting …")
+        example_results = _collect_example_results(
+            ndvi_dataset,
+            base_columns,
+            time_center,
+            EXAMPLE_LOCATIONS,
+            stack_shape[1],
+            stack_shape[2],
+        )
+        _plot_examples(example_results, dates, elapsed_days, time_center)
+
+    with ExitStack() as stack:
+        contexts: list[ModelContext] = []
+        spec_dicts = [
+            {
+                "name": spec.name,
+                "include_semiannual": spec.include_semiannual,
+                "include_trend": spec.include_trend,
+                "parameter_names": tuple(spec.parameter_names),
+            }
+            for spec in FIT_SPECS
+        ]
+        for spec in FIT_SPECS:
+            h5file = stack.enter_context(h5py.File(spec.output_path, "w"))
+            contexts.append(
+                ModelContext(
                     spec=spec,
-                    columns=_design_matrix_columns(base_columns, spec),
+                    columns=(),
                     h5file=h5file,
                 )
-                contexts.append(context)
-
-            _create_output_datasets(
-                ndvi_stack.shape,
-                contexts,
-                metadata=metadata,
-                elapsed_days=elapsed_days,
-                time_origin=dates[0],
-                time_center=time_center,
             )
 
-            n_time, n_rows, n_cols = ndvi_stack.shape
-            print(f"Stack shape: time={n_time}, rows={n_rows}, cols={n_cols}")
+        _create_output_datasets(
+            stack_shape,
+            contexts,
+            metadata=metadata,
+            elapsed_days=elapsed_days,
+            time_origin=dates[0],
+            time_center=time_center,
+        )
 
-            example_lookup: dict[int, dict[int, int]] = {}
-            example_results: list[dict[str, object]] = [
-                {"lat": lat, "lon": lon, "series": None, "fits": {}}
-                for lat, lon in EXAMPLE_LOCATIONS
+        n_time, n_rows, n_cols = stack_shape
+        print(f"Stack shape: time={n_time}, rows={n_rows}, cols={n_cols}")
+
+        example_lookup: dict[int, dict[int, int]] = {}
+        for idx, (lat, lon) in enumerate(EXAMPLE_LOCATIONS):
+            row, col = _latlon_to_indices(lat, lon, n_rows, n_cols)
+            example_lookup.setdefault(row, {})[col] = idx
+            print(
+                f"Example point {idx + 1}: lat={lat}, lon={lon} -> row={row}, col={col}"
+            )
+
+        semiannual_counts = {"comparisons": 0, "aic": 0, "adj": 0}
+        semiannual_trend_counts = {"comparisons": 0, "aic": 0, "adj": 0}
+        trend_counts = {"comparisons": 0, "aic": 0, "adj": 0}
+        trend_semi_counts = {"comparisons": 0, "aic": 0, "adj": 0}
+
+        for row_start in tqdm(
+            range(0, n_rows, BLOCK_ROWS), desc="Fitting harmonics", unit="block"
+        ):
+            row_end = min(row_start + BLOCK_ROWS, n_rows)
+            block_rows = row_end - row_start
+
+            param_buffers = [
+                np.full((block_rows, n_cols, ctx.spec.num_params), np.nan, dtype=np.float32)
+                for ctx in contexts
+            ]
+            r2_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            adj_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            aic_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            nobs_buffers = [
+                np.zeros((block_rows, n_cols), dtype=np.int16) for _ in contexts
+            ]
+            amp1_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            phase1_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            amp2_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
+            ]
+            phase2_buffers = [
+                np.full((block_rows, n_cols), np.nan, dtype=np.float32) for _ in contexts
             ]
 
-            for idx, (lat, lon) in enumerate(EXAMPLE_LOCATIONS):
-                row, col = _latlon_to_indices(lat, lon, n_rows, n_cols)
-                example_lookup.setdefault(row, {})[col] = idx
-                print(
-                    f"Example point {idx + 1}: lat={lat}, lon={lon} -> row={row}, col={col}"
+            with Pool(
+                processes=N_WORKERS,
+                initializer=_init_worker,
+                initargs=(
+                    str(DATA_PATH),
+                    elapsed_days,
+                    time_center,
+                    spec_dicts,
+                    NICENESS_DELTA,
+                ),
+            ) as pool:
+                tasks = [
+                    (row_start, row_end, col_start, min(col_start + COL_CHUNK, n_cols), example_lookup)
+                    for col_start in range(0, n_cols, COL_CHUNK)
+                ]
+
+                for (
+                    col_start,
+                    col_end,
+                    params,
+                    r2_values,
+                    adj_values,
+                    aic_values,
+                    n_obs_values,
+                    amp1_values,
+                    phase1_values,
+                    amp2_values,
+                    phase2_values,
+                    examples,
+                ) in pool.imap_unordered(_process_col_chunk, tasks):
+                    col_slice = slice(col_start, col_end)
+                    for ctx_idx in range(len(contexts)):
+                        param_buffers[ctx_idx][:, col_slice, :] = params[ctx_idx]
+                        r2_buffers[ctx_idx][:, col_slice] = r2_values[ctx_idx]
+                        adj_buffers[ctx_idx][:, col_slice] = adj_values[ctx_idx]
+                        aic_buffers[ctx_idx][:, col_slice] = aic_values[ctx_idx]
+                        nobs_buffers[ctx_idx][:, col_slice] = n_obs_values[ctx_idx]
+                        amp1_buffers[ctx_idx][:, col_slice] = amp1_values[ctx_idx]
+                        phase1_buffers[ctx_idx][:, col_slice] = phase1_values[ctx_idx]
+                        amp2_buffers[ctx_idx][:, col_slice] = amp2_values[ctx_idx]
+                        phase2_buffers[ctx_idx][:, col_slice] = phase2_values[ctx_idx]
+
+                    for example_idx, payload in examples:
+                        if example_results[example_idx]["series"] is None:
+                            example_results[example_idx]["series"] = payload["series"]
+                            example_results[example_idx]["fits"] = payload["fits"]
+
+            success_masks = [np.isfinite(r2) for r2 in r2_buffers]
+
+            def _count_improvement(
+                mask_a: np.ndarray,
+                mask_b: np.ndarray,
+                metric_a: np.ndarray,
+                metric_b: np.ndarray,
+                comparator,
+            ) -> tuple[int, int]:
+                valid = mask_a & mask_b & np.isfinite(metric_a) & np.isfinite(metric_b)
+                return int(np.count_nonzero(comparator(metric_a, metric_b) & valid)), int(
+                    np.count_nonzero(valid)
                 )
 
-            semiannual_counts = {"comparisons": 0, "aic": 0, "adj": 0}
-            semiannual_trend_counts = {"comparisons": 0, "aic": 0, "adj": 0}
-            trend_counts = {"comparisons": 0, "aic": 0, "adj": 0}
-            trend_semi_counts = {"comparisons": 0, "aic": 0, "adj": 0}
+            base_idx, trend_idx, semi_idx, semi_trend_idx = 0, 1, 2, 3
 
-            for row_start in tqdm(
-                range(0, n_rows, BLOCK_ROWS), desc="Fitting harmonics", unit="block"
-            ):
-                row_end = min(row_start + BLOCK_ROWS, n_rows)
-                block_rows = row_end - row_start
+            improved, comparisons = _count_improvement(
+                success_masks[base_idx],
+                success_masks[semi_idx],
+                aic_buffers[semi_idx],
+                aic_buffers[base_idx],
+                np.less,
+            )
+            semiannual_counts["aic"] += improved
+            semiannual_counts["comparisons"] += comparisons
+            improved, _ = _count_improvement(
+                success_masks[base_idx],
+                success_masks[semi_idx],
+                adj_buffers[semi_idx],
+                adj_buffers[base_idx],
+                np.greater,
+            )
+            semiannual_counts["adj"] += improved
 
-                block_series = np.asarray(ndvi_stack[:, row_start:row_end, :])
+            improved, comparisons = _count_improvement(
+                success_masks[base_idx],
+                success_masks[trend_idx],
+                aic_buffers[trend_idx],
+                aic_buffers[base_idx],
+                np.less,
+            )
+            trend_counts["aic"] += improved
+            trend_counts["comparisons"] += comparisons
+            improved, _ = _count_improvement(
+                success_masks[base_idx],
+                success_masks[trend_idx],
+                adj_buffers[trend_idx],
+                adj_buffers[base_idx],
+                np.greater,
+            )
+            trend_counts["adj"] += improved
 
-                param_buffers = [
-                    np.full(
-                        (block_rows, n_cols, ctx.spec.num_params),
-                        np.nan,
-                        dtype=np.float32,
-                    )
-                    for ctx in contexts
-                ]
-                r2_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                adj_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                aic_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                nobs_buffers = [
-                    np.zeros((block_rows, n_cols), dtype=np.int16) for _ in contexts
-                ]
-                amp1_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                phase1_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                amp2_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
-                phase2_buffers = [
-                    np.full((block_rows, n_cols), np.nan, dtype=np.float32)
-                    for _ in contexts
-                ]
+            improved, comparisons = _count_improvement(
+                success_masks[trend_idx],
+                success_masks[semi_trend_idx],
+                aic_buffers[semi_trend_idx],
+                aic_buffers[trend_idx],
+                np.less,
+            )
+            semiannual_trend_counts["aic"] += improved
+            semiannual_trend_counts["comparisons"] += comparisons
+            improved, _ = _count_improvement(
+                success_masks[trend_idx],
+                success_masks[semi_trend_idx],
+                adj_buffers[semi_trend_idx],
+                adj_buffers[trend_idx],
+                np.greater,
+            )
+            semiannual_trend_counts["adj"] += improved
 
-                for local_row in range(block_rows):
-                    global_row = row_start + local_row
-                    row_series = block_series[:, local_row, :]
-                    for col_idx in range(n_cols):
-                        series = row_series[:, col_idx]
-                        if not np.isfinite(series).any():
-                            continue
+            improved, comparisons = _count_improvement(
+                success_masks[semi_idx],
+                success_masks[semi_trend_idx],
+                aic_buffers[semi_trend_idx],
+                aic_buffers[semi_idx],
+                np.less,
+            )
+            trend_semi_counts["aic"] += improved
+            trend_semi_counts["comparisons"] += comparisons
+            improved, _ = _count_improvement(
+                success_masks[semi_idx],
+                success_masks[semi_trend_idx],
+                adj_buffers[semi_trend_idx],
+                adj_buffers[semi_idx],
+                np.greater,
+            )
+            trend_semi_counts["adj"] += improved
 
-                        results = [_fit_harmonic(series, ctx.columns) for ctx in contexts]
+            for ctx_idx, ctx in enumerate(contexts):
+                assert ctx.parameters_ds is not None
+                assert ctx.r_squared_ds is not None
+                assert ctx.adj_r_squared_ds is not None
+                assert ctx.aic_ds is not None
+                assert ctx.n_obs_ds is not None
+                assert ctx.amplitude_annual_ds is not None
+                assert ctx.phase_annual_ds is not None
+                assert ctx.amplitude_semiannual_ds is not None
+                assert ctx.phase_semiannual_ds is not None
 
-                        base_res, trend_res, semi_res, semi_trend_res = results
+                ctx.parameters_ds[row_start:row_end, :, :] = param_buffers[ctx_idx]
+                ctx.r_squared_ds[row_start:row_end, :] = r2_buffers[ctx_idx]
+                ctx.adj_r_squared_ds[row_start:row_end, :] = adj_buffers[ctx_idx]
+                ctx.aic_ds[row_start:row_end, :] = aic_buffers[ctx_idx]
+                ctx.n_obs_ds[row_start:row_end, :] = nobs_buffers[ctx_idx]
+                ctx.amplitude_annual_ds[row_start:row_end, :] = amp1_buffers[ctx_idx]
+                ctx.phase_annual_ds[row_start:row_end, :] = phase1_buffers[ctx_idx]
+                ctx.amplitude_semiannual_ds[row_start:row_end, :] = amp2_buffers[ctx_idx]
+                ctx.phase_semiannual_ds[row_start:row_end, :] = phase2_buffers[ctx_idx]
 
-                        if base_res.success and semi_res.success:
-                            semiannual_counts["comparisons"] += 1
-                            if (
-                                np.isfinite(semi_res.aic)
-                                and np.isfinite(base_res.aic)
-                                and semi_res.aic < base_res.aic
-                            ):
-                                semiannual_counts["aic"] += 1
-                            if (
-                                np.isfinite(semi_res.adj_r_squared)
-                                and np.isfinite(base_res.adj_r_squared)
-                                and semi_res.adj_r_squared > base_res.adj_r_squared
-                            ):
-                                semiannual_counts["adj"] += 1
+        def _summarise(label: str, counts: dict[str, int]) -> None:
+            comparisons = counts["comparisons"]
+            if comparisons == 0:
+                print(f"{label}: no comparable pixels")
+                return
+            aic_pct = 100.0 * counts["aic"] / comparisons
+            adj_pct = 100.0 * counts["adj"] / comparisons
+            print(
+                f"{label}: tested={comparisons:,}, "
+                f"AIC improved in {counts['aic']:,} ({aic_pct:.1f}%), "
+                f"adj. R^2 improved in {counts['adj']:,} ({adj_pct:.1f}%)"
+            )
 
-                        if base_res.success and trend_res.success:
-                            trend_counts["comparisons"] += 1
-                            if (
-                                np.isfinite(trend_res.aic)
-                                and np.isfinite(base_res.aic)
-                                and trend_res.aic < base_res.aic
-                            ):
-                                trend_counts["aic"] += 1
-                            if (
-                                np.isfinite(trend_res.adj_r_squared)
-                                and np.isfinite(base_res.adj_r_squared)
-                                and trend_res.adj_r_squared > base_res.adj_r_squared
-                            ):
-                                trend_counts["adj"] += 1
+        _summarise("Semiannual (no trend)", semiannual_counts)
+        _summarise("Semiannual (with trend)", semiannual_trend_counts)
+        _summarise("Trend (annual model)", trend_counts)
+        _summarise("Trend (semiannual model)", trend_semi_counts)
 
-                        if trend_res.success and semi_trend_res.success:
-                            semiannual_trend_counts["comparisons"] += 1
-                            if (
-                                np.isfinite(semi_trend_res.aic)
-                                and np.isfinite(trend_res.aic)
-                                and semi_trend_res.aic < trend_res.aic
-                            ):
-                                semiannual_trend_counts["aic"] += 1
-                            if (
-                                np.isfinite(semi_trend_res.adj_r_squared)
-                                and np.isfinite(trend_res.adj_r_squared)
-                                and semi_trend_res.adj_r_squared > trend_res.adj_r_squared
-                            ):
-                                semiannual_trend_counts["adj"] += 1
-
-                        if semi_res.success and semi_trend_res.success:
-                            trend_semi_counts["comparisons"] += 1
-                            if (
-                                np.isfinite(semi_trend_res.aic)
-                                and np.isfinite(semi_res.aic)
-                                and semi_trend_res.aic < semi_res.aic
-                            ):
-                                trend_semi_counts["aic"] += 1
-                            if (
-                                np.isfinite(semi_trend_res.adj_r_squared)
-                                and np.isfinite(semi_res.adj_r_squared)
-                                and semi_trend_res.adj_r_squared > semi_res.adj_r_squared
-                            ):
-                                trend_semi_counts["adj"] += 1
-
-                        for ctx_idx, (ctx, result) in enumerate(zip(contexts, results)):
-                            param_buffers[ctx_idx][local_row, col_idx, :] = result.params
-                            r2_buffers[ctx_idx][local_row, col_idx] = result.r_squared
-                            adj_buffers[ctx_idx][local_row, col_idx] = result.adj_r_squared
-                            aic_buffers[ctx_idx][local_row, col_idx] = result.aic
-                            nobs_buffers[ctx_idx][local_row, col_idx] = result.n_obs
-                            amp1, phase1, amp2, phase2 = _derived_from_params(
-                                result.params, ctx.spec
-                            )
-                            amp1_buffers[ctx_idx][local_row, col_idx] = np.float32(amp1)
-                            phase1_buffers[ctx_idx][local_row, col_idx] = np.float32(phase1)
-                            amp2_buffers[ctx_idx][local_row, col_idx] = np.float32(amp2)
-                            phase2_buffers[ctx_idx][local_row, col_idx] = np.float32(phase2)
-
-                        example_for_row = example_lookup.get(global_row)
-                        if example_for_row and col_idx in example_for_row:
-                            example_idx = example_for_row[col_idx]
-                            example_entry = example_results[example_idx]
-                            example_entry["series"] = np.array(series, dtype=np.float32)
-                            fits = example_entry["fits"]
-                            for ctx, result in zip(contexts, results):
-                                fits[ctx.spec.name] = {
-                                    "params": result.params,
-                                    "include_semiannual": ctx.spec.include_semiannual,
-                                    "include_trend": ctx.spec.include_trend,
-                                    "r_squared": result.r_squared,
-                                    "adj_r_squared": result.adj_r_squared,
-                                    "aic": result.aic,
-                                    "n_obs": result.n_obs,
-                                }
-
-                for ctx_idx, ctx in enumerate(contexts):
-                    assert ctx.parameters_ds is not None
-                    assert ctx.r_squared_ds is not None
-                    assert ctx.adj_r_squared_ds is not None
-                    assert ctx.aic_ds is not None
-                    assert ctx.n_obs_ds is not None
-                    assert ctx.amplitude_annual_ds is not None
-                    assert ctx.phase_annual_ds is not None
-                    assert ctx.amplitude_semiannual_ds is not None
-                    assert ctx.phase_semiannual_ds is not None
-
-                    ctx.parameters_ds[row_start:row_end, :, :] = param_buffers[ctx_idx]
-                    ctx.r_squared_ds[row_start:row_end, :] = r2_buffers[ctx_idx]
-                    ctx.adj_r_squared_ds[row_start:row_end, :] = adj_buffers[ctx_idx]
-                    ctx.aic_ds[row_start:row_end, :] = aic_buffers[ctx_idx]
-                    ctx.n_obs_ds[row_start:row_end, :] = nobs_buffers[ctx_idx]
-                    ctx.amplitude_annual_ds[row_start:row_end, :] = amp1_buffers[ctx_idx]
-                    ctx.phase_annual_ds[row_start:row_end, :] = phase1_buffers[ctx_idx]
-                    ctx.amplitude_semiannual_ds[row_start:row_end, :] = amp2_buffers[ctx_idx]
-                    ctx.phase_semiannual_ds[row_start:row_end, :] = phase2_buffers[ctx_idx]
-
-            def _summarise(label: str, counts: dict[str, int]) -> None:
-                comps = counts["comparisons"]
-                if comps == 0:
-                    print(f"{label}: no comparable pixels")
-                    return
-                aic_pct = 100.0 * counts["aic"] / comps
-                adj_pct = 100.0 * counts["adj"] / comps
-                print(
-                    f"{label}: tested={comps:,}, "
-                    f"AIC improved in {counts['aic']:,} ({aic_pct:.1f}%), "
-                    f"adj. R^2 improved in {counts['adj']:,} ({adj_pct:.1f}%)"
-                )
-
-            _summarise("Semiannual (no trend)", semiannual_counts)
-            _summarise("Semiannual (with trend)", semiannual_trend_counts)
-            _summarise("Trend (annual model)", trend_counts)
-            _summarise("Trend (semiannual model)", trend_semi_counts)
-
-            print("Writing example plots …")
-            _plot_examples(example_results, dates, elapsed_days, time_center)
-
-        for context in contexts:
-            print(f"Wrote {context.spec.name} results to {context.spec.output_path}")
+    for context in contexts:
+        print(f"Wrote {context.spec.name} results to {context.spec.output_path}")
 
 
 if __name__ == "__main__":
