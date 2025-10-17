@@ -11,6 +11,7 @@ from joblib import dump
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 from bioclim_model_utils import (
     build_target_transform,
@@ -80,6 +81,10 @@ def main() -> None:
         X, y, test_size=0.2, random_state=42
     )
 
+    feature_scaler = StandardScaler().fit(X_train)
+    X_train = feature_scaler.transform(X_train)
+    X_test = feature_scaler.transform(X_test)
+
     y_transform = build_target_transform(
         y_train,
         TARGET_FEATURES,
@@ -118,7 +123,14 @@ def main() -> None:
         print(f"  - {name}: {importance:.4f}")
 
     METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    dump({"model": model, "y_transform": y_transform}, MODEL_PATH)
+    dump(
+        {
+            "model": model,
+            "feature_scaler": feature_scaler,
+            "y_transform": y_transform,
+        },
+        MODEL_PATH,
+    )
     metrics = {
         "target_features": list(TARGET_FEATURES),
         "bioclim_features": list(bioclim_names),
