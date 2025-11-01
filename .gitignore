@@ -33,8 +33,11 @@ build/
 # Data directories (track structure with .gitkeep/README files only)
 data/*
 !data/
+!data/intermediate/
 !data/**/.gitkeep
 !data/**/README.md
+!data/**/descriptions/
+!data/**/descriptions/*.md
 
 # Figure directories (track structure with .gitkeep/README files only)
 figure/*
