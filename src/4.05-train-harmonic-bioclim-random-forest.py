@@ -15,6 +15,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.inspection import permutation_importance
 
 from bioclim_correlation_utils import (
     FeatureLayerSpec,
@@ -50,6 +51,7 @@ class TrainingData:
     features: np.ndarray
     targets: np.ndarray
     feature_names: list[str]
+    feature_indices: list[int]
     target_names: list[str]
 
 
@@ -161,6 +163,7 @@ def _load_training_arrays() -> TrainingData:
         features=features.astype(np.float32),
         targets=targets.astype(np.float32),
         feature_names=selected_names,
+        feature_indices=bioclim_indices,
         target_names=target_names,
     )
 
@@ -176,6 +179,7 @@ def _build_pipeline() -> Pipeline:
                     max_samples=TREE_SAMPLE_FRACTION,
                     max_features=TREE_FEATURE_FRACTION,
                     bootstrap=True,
+                    oob_score=True,
                     random_state=RANDOM_STATE,
                     n_jobs=-1,
                 ),
@@ -212,6 +216,33 @@ def main() -> None:
     )
     pipeline.fit(X_train, y_train)
 
+    model: RandomForestRegressor = pipeline.named_steps["model"]
+    print(f"Random forest OOB R² score: {model.oob_score_:.3f}")
+
+    if hasattr(model, "oob_prediction_") and model.oob_prediction_ is not None:
+        oob_predictions = model.oob_prediction_
+        oob_per_target_r2 = r2_score(y_train, oob_predictions, multioutput="raw_values")
+        oob_per_target_mae = mean_absolute_error(
+            y_train, oob_predictions, multioutput="raw_values"
+        )
+        oob_overall_r2 = r2_score(
+            y_train, oob_predictions, multioutput="variance_weighted"
+        )
+        oob_overall_mae = mean_absolute_error(y_train, oob_predictions)
+        print("OOB evaluation:")
+        for name, r2_value, mae_value in zip(
+            training_data.target_names, oob_per_target_r2, oob_per_target_mae
+        ):
+            print(f"  - {name}: R²={r2_value:.3f}, MAE={mae_value:.3f}")
+        print(f"  Overall variance-weighted R²: {oob_overall_r2:.3f}")
+        print(f"  Overall mean absolute error: {oob_overall_mae:.3f}")
+    else:
+        oob_predictions = None
+        oob_per_target_r2 = None
+        oob_per_target_mae = None
+        oob_overall_r2 = None
+        oob_overall_mae = None
+
     predictions = pipeline.predict(X_test)
     per_tree_predictions = _predict_per_tree(pipeline, X_test)
 
@@ -234,15 +265,60 @@ def main() -> None:
         )
     )
 
+    impurity_importances = dict(
+        zip(
+            training_data.feature_names,
+            map(float, model.feature_importances_),
+        )
+    )
+    print("Top impurity-based feature importances:")
+    for name, importance in sorted(
+        impurity_importances.items(), key=lambda item: item[1], reverse=True
+    )[:10]:
+        print(f"  - {name}: {importance:.4f}")
+
+    print("Computing permutation importances on the hold-out set...")
+    perm_result = permutation_importance(
+        pipeline,
+        X_test,
+        y_test,
+        n_repeats=10,
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+    )
+    permutation_importances = {
+        name: {
+            "mean": float(mean),
+            "std": float(std),
+        }
+        for name, mean, std in zip(
+            training_data.feature_names,
+            perm_result.importances_mean,
+            perm_result.importances_std,
+        )
+    }
+    print("Top permutation-based feature importances:")
+    for name, stats in sorted(
+        permutation_importances.items(),
+        key=lambda item: item[1]["mean"],
+        reverse=True,
+    )[:10]:
+        print(f"  - {name}: mean={stats['mean']:.4f}, std={stats['std']:.4f}")
+
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     dump(
         {
             "pipeline": pipeline,
             "feature_names": training_data.feature_names,
+            "feature_indices": training_data.feature_indices,
             "target_names": training_data.target_names,
             "bioclim_numbers": list(SELECTED_BIOCLIM_NUMBERS),
             "r2_threshold": R2_THRESHOLD,
             "min_observations": MIN_OBSERVATIONS,
+            "n_estimators": N_ESTIMATORS,
+            "max_samples": TREE_SAMPLE_FRACTION,
+            "max_features": TREE_FEATURE_FRACTION,
+            "oob_score": float(model.oob_score_),
         },
         MODEL_PATH,
     )
@@ -266,6 +342,25 @@ def main() -> None:
             for name, value in zip(training_data.target_names, per_target_mae)
         },
         "feature_names": training_data.feature_names,
+        "feature_indices": training_data.feature_indices,
+        "feature_importances": impurity_importances,
+        "permutation_importance": permutation_importances,
+        "per_tree_prediction_shape": list(per_tree_predictions.shape),
+        "oob_score": float(model.oob_score_),
+        "oob_overall_r2": None if oob_overall_r2 is None else float(oob_overall_r2),
+        "oob_overall_mae": None if oob_overall_mae is None else float(oob_overall_mae),
+        "oob_per_target_r2": None
+        if oob_per_target_r2 is None
+        else {
+            name: float(value)
+            for name, value in zip(training_data.target_names, oob_per_target_r2)
+        },
+        "oob_per_target_mae": None
+        if oob_per_target_mae is None
+        else {
+            name: float(value)
+            for name, value in zip(training_data.target_names, oob_per_target_mae)
+        },
     }
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics, fp, indent=2)
