@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -26,6 +27,9 @@ from bioclim_correlation_utils import (
 from logging_setup import initialize_script_logging
 
 initialize_script_logging(__file__)
+logging.basicConfig(format="%(message)s", level=logging.INFO)
+
+LOGGER = logging.getLogger(Path(__file__).stem)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
@@ -113,10 +117,9 @@ def _load_training_arrays() -> TrainingData:
     ).astype(np.float32)
 
     rows, cols = selected_stack.shape[1:]
-    print(
-        "Selected {count} bioclim features for modelling.".format(
-            count=len(selected_names)
-        )
+    LOGGER.info(
+        "Selected %d bioclim features for modelling.",
+        len(selected_names),
     )
 
     feature_mask = np.isfinite(selected_stack).all(axis=0)
@@ -140,12 +143,11 @@ def _load_training_arrays() -> TrainingData:
     features = flat_features[valid_indices]
     targets = target_matrix[valid_indices]
 
-    print(
-        "Prepared {samples:,} samples with {features_dim} features and {targets_dim} targets.".format(
-            samples=features.shape[0],
-            features_dim=features.shape[1],
-            targets_dim=targets.shape[1],
-        )
+    LOGGER.info(
+        "Prepared %,d samples with %d features and %d targets.",
+        features.shape[0],
+        features.shape[1],
+        targets.shape[1],
     )
 
     if features.shape[0] > MAX_TRAINING_SAMPLES:
@@ -153,10 +155,9 @@ def _load_training_arrays() -> TrainingData:
         selected = rng.choice(features.shape[0], size=MAX_TRAINING_SAMPLES, replace=False)
         features = features[selected]
         targets = targets[selected]
-        print(
-            "Subsampled to {count:,} samples for manageable training.".format(
-                count=features.shape[0]
-            )
+        LOGGER.info(
+            "Subsampled to %,d samples for manageable training.",
+            features.shape[0],
         )
 
     return TrainingData(
@@ -208,16 +209,15 @@ def main() -> None:
     )
 
     pipeline = _build_pipeline()
-    print(
-        "Training RandomForestRegressor with {trees} trees on {samples:,} samples.".format(
-            trees=N_ESTIMATORS,
-            samples=X_train.shape[0],
-        )
+    LOGGER.info(
+        "Training RandomForestRegressor with %d trees on %,d samples.",
+        N_ESTIMATORS,
+        X_train.shape[0],
     )
     pipeline.fit(X_train, y_train)
 
     model: RandomForestRegressor = pipeline.named_steps["model"]
-    print(f"Random forest OOB R² score: {model.oob_score_:.3f}")
+    LOGGER.info("Random forest OOB R² score: %.3f", model.oob_score_)
 
     if hasattr(model, "oob_prediction_") and model.oob_prediction_ is not None:
         oob_predictions = model.oob_prediction_
@@ -229,13 +229,18 @@ def main() -> None:
             y_train, oob_predictions, multioutput="variance_weighted"
         )
         oob_overall_mae = mean_absolute_error(y_train, oob_predictions)
-        print("OOB evaluation:")
+        LOGGER.info("OOB evaluation:")
         for name, r2_value, mae_value in zip(
             training_data.target_names, oob_per_target_r2, oob_per_target_mae
         ):
-            print(f"  - {name}: R²={r2_value:.3f}, MAE={mae_value:.3f}")
-        print(f"  Overall variance-weighted R²: {oob_overall_r2:.3f}")
-        print(f"  Overall mean absolute error: {oob_overall_mae:.3f}")
+            LOGGER.info(
+                "  - %s: R²=%.3f, MAE=%.3f",
+                name,
+                r2_value,
+                mae_value,
+            )
+        LOGGER.info("  Overall variance-weighted R²: %.3f", oob_overall_r2)
+        LOGGER.info("  Overall mean absolute error: %.3f", oob_overall_mae)
     else:
         oob_predictions = None
         oob_per_target_r2 = None
@@ -251,18 +256,22 @@ def main() -> None:
     overall_r2 = r2_score(y_test, predictions, multioutput="variance_weighted")
     overall_mae = mean_absolute_error(y_test, predictions)
 
-    print("Model evaluation (hold-out set):")
+    LOGGER.info("Model evaluation (hold-out set):")
     for name, r2_value, mae_value in zip(
         training_data.target_names, per_target_r2, per_target_mae
     ):
-        print(f"  - {name}: R²={r2_value:.3f}, MAE={mae_value:.3f}")
-    print(f"Overall variance-weighted R²: {overall_r2:.3f}")
-    print(f"Overall mean absolute error: {overall_mae:.3f}")
-
-    print(
-        "Generated per-tree predictions with shape {shape}.".format(
-            shape=per_tree_predictions.shape
+        LOGGER.info(
+            "  - %s: R²=%.3f, MAE=%.3f",
+            name,
+            r2_value,
+            mae_value,
         )
+    LOGGER.info("Overall variance-weighted R²: %.3f", overall_r2)
+    LOGGER.info("Overall mean absolute error: %.3f", overall_mae)
+
+    LOGGER.info(
+        "Generated per-tree predictions with shape %s.",
+        per_tree_predictions.shape,
     )
 
     impurity_importances = dict(
@@ -271,13 +280,13 @@ def main() -> None:
             map(float, model.feature_importances_),
         )
     )
-    print("Top impurity-based feature importances:")
+    LOGGER.info("Top impurity-based feature importances:")
     for name, importance in sorted(
         impurity_importances.items(), key=lambda item: item[1], reverse=True
     )[:10]:
-        print(f"  - {name}: {importance:.4f}")
+        LOGGER.info("  - %s: %.4f", name, importance)
 
-    print("Computing permutation importances on the hold-out set...")
+    LOGGER.info("Computing permutation importances on the hold-out set...")
     perm_result = permutation_importance(
         pipeline,
         X_test,
@@ -297,13 +306,18 @@ def main() -> None:
             perm_result.importances_std,
         )
     }
-    print("Top permutation-based feature importances:")
+    LOGGER.info("Top permutation-based feature importances:")
     for name, stats in sorted(
         permutation_importances.items(),
         key=lambda item: item[1]["mean"],
         reverse=True,
     )[:10]:
-        print(f"  - {name}: mean={stats['mean']:.4f}, std={stats['std']:.4f}")
+        LOGGER.info(
+            "  - %s: mean=%.4f, std=%.4f",
+            name,
+            stats["mean"],
+            stats["std"],
+        )
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
     dump(
@@ -365,8 +379,12 @@ def main() -> None:
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics, fp, indent=2)
 
-    print(f"Saved model to {MODEL_PATH} and metrics to {METRICS_PATH}.")
-    print("Training routine complete.")
+    LOGGER.info(
+        "Saved model to %s and metrics to %s.",
+        MODEL_PATH,
+        METRICS_PATH,
+    )
+    LOGGER.info("Training routine complete.")
 
 
 if __name__ == "__main__":
