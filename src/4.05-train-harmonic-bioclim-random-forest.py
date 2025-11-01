@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""Train a random forest ensemble to predict harmonic fit parameters from bioclim variables."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, Sequence
+
+import numpy as np
+from joblib import dump
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+
+from bioclim_correlation_utils import (
+    FeatureLayerSpec,
+    load_bioclim_layers,
+    load_feature_layers,
+    load_npz_arrays,
+)
+from logging_setup import initialize_script_logging
+
+initialize_script_logging(__file__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
+COMBINED_PATH = INTERMEDIATE_DIR / "ndvi_harmonic_semiannual_trend_bioclim_combined.npz"
+MODEL_PATH = INTERMEDIATE_DIR / "harmonic_bioclim_random_forest.joblib"
+METRICS_PATH = INTERMEDIATE_DIR / "harmonic_bioclim_random_forest_metrics.json"
+
+SELECTED_BIOCLIM_NUMBERS: tuple[int, ...] = (1, *range(4, 20))
+R2_THRESHOLD = 0.6
+MIN_OBSERVATIONS = 24
+TRAIN_FRACTION = 0.8
+MAX_TRAINING_SAMPLES = 500_000
+N_ESTIMATORS = 20
+TREE_SAMPLE_FRACTION = 0.8
+TREE_FEATURE_FRACTION = 0.8
+RANDOM_STATE = 42
+
+
+@dataclass(frozen=True)
+class TrainingData:
+    """Container for processed training arrays and metadata."""
+
+    features: np.ndarray
+    targets: np.ndarray
+    feature_names: list[str]
+    target_names: list[str]
+
+
+def _extract_bioclim_number(name: str) -> int | None:
+    digits = "".join(ch for ch in name if ch.isdigit())
+    return int(digits) if digits else None
+
+
+def _select_bioclim_indices(names: Sequence[str], allowed_numbers: Iterable[int]) -> tuple[list[int], list[str]]:
+    allowed_set = set(allowed_numbers)
+    indices: list[int] = []
+    selected_names: list[str] = []
+    for idx, name in enumerate(names):
+        number = _extract_bioclim_number(name)
+        if number is not None and number in allowed_set:
+            indices.append(idx)
+            selected_names.append(str(name))
+    if not indices:
+        raise ValueError(
+            "No bioclim variables matched the requested numbers."
+        )
+    return indices, selected_names
+
+
+def _load_training_arrays() -> TrainingData:
+    arrays = load_npz_arrays(
+        COMBINED_PATH,
+        required_keys=[
+            "bioclim",
+            "bioclim_names",
+            "harmonic_parameters",
+            "harmonic_parameter_names",
+        ],
+        optional_keys=[
+            "harmonic_r_squared",
+            "harmonic_num_observations",
+        ],
+        missing_file_hint="Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first.",
+    )
+
+    bioclim_stack, bioclim_names = load_bioclim_layers(arrays)
+    bioclim_indices, selected_names = _select_bioclim_indices(
+        bioclim_names,
+        SELECTED_BIOCLIM_NUMBERS,
+    )
+    selected_stack = bioclim_stack[bioclim_indices]
+
+    feature_layers = load_feature_layers(
+        arrays,
+        FeatureLayerSpec(
+            array_key="harmonic_parameters",
+            names_key="harmonic_parameter_names",
+        ),
+    )
+    target_names = list(feature_layers)
+    target_matrix = np.stack(
+        [feature_layers[name] for name in target_names],
+        axis=1,
+    ).astype(np.float32)
+
+    rows, cols = selected_stack.shape[1:]
+    print(
+        "Selected {count} bioclim features for modelling.".format(
+            count=len(selected_names)
+        )
+    )
+
+    feature_mask = np.isfinite(selected_stack).all(axis=0)
+    target_mask_flat = np.isfinite(target_matrix).all(axis=1)
+    target_mask = target_mask_flat.reshape(rows, cols)
+
+    combined_mask = feature_mask & target_mask
+
+    if "harmonic_r_squared" in arrays:
+        r_squared = np.asarray(arrays["harmonic_r_squared"], dtype=np.float32)
+        combined_mask &= np.isfinite(r_squared) & (r_squared >= R2_THRESHOLD)
+    if "harmonic_num_observations" in arrays:
+        num_obs = np.asarray(arrays["harmonic_num_observations"], dtype=np.float32)
+        combined_mask &= num_obs >= MIN_OBSERVATIONS
+
+    valid_indices = np.flatnonzero(combined_mask.ravel())
+    if valid_indices.size == 0:
+        raise ValueError("No valid samples remain after applying quality filters.")
+
+    flat_features = selected_stack.reshape(len(selected_names), -1).T
+    features = flat_features[valid_indices]
+    targets = target_matrix[valid_indices]
+
+    print(
+        "Prepared {samples:,} samples with {features_dim} features and {targets_dim} targets.".format(
+            samples=features.shape[0],
+            features_dim=features.shape[1],
+            targets_dim=targets.shape[1],
+        )
+    )
+
+    if features.shape[0] > MAX_TRAINING_SAMPLES:
+        rng = np.random.default_rng(RANDOM_STATE)
+        selected = rng.choice(features.shape[0], size=MAX_TRAINING_SAMPLES, replace=False)
+        features = features[selected]
+        targets = targets[selected]
+        print(
+            "Subsampled to {count:,} samples for manageable training.".format(
+                count=features.shape[0]
+            )
+        )
+
+    return TrainingData(
+        features=features.astype(np.float32),
+        targets=targets.astype(np.float32),
+        feature_names=selected_names,
+        target_names=target_names,
+    )
+
+
+def _build_pipeline() -> Pipeline:
+    return Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            (
+                "model",
+                RandomForestRegressor(
+                    n_estimators=N_ESTIMATORS,
+                    max_samples=TREE_SAMPLE_FRACTION,
+                    max_features=TREE_FEATURE_FRACTION,
+                    bootstrap=True,
+                    random_state=RANDOM_STATE,
+                    n_jobs=-1,
+                ),
+            ),
+        ]
+    )
+
+
+def _predict_per_tree(pipeline: Pipeline, X: np.ndarray) -> np.ndarray:
+    feature_transform = pipeline[:-1]
+    X_transformed = feature_transform.transform(X)
+    model: RandomForestRegressor = pipeline.named_steps["model"]
+    predictions = np.stack([
+        estimator.predict(X_transformed) for estimator in model.estimators_
+    ])
+    return predictions
+
+
+def main() -> None:
+    training_data = _load_training_arrays()
+    X_train, X_test, y_train, y_test = train_test_split(
+        training_data.features,
+        training_data.targets,
+        train_size=TRAIN_FRACTION,
+        random_state=RANDOM_STATE,
+    )
+
+    pipeline = _build_pipeline()
+    print(
+        "Training RandomForestRegressor with {trees} trees on {samples:,} samples.".format(
+            trees=N_ESTIMATORS,
+            samples=X_train.shape[0],
+        )
+    )
+    pipeline.fit(X_train, y_train)
+
+    predictions = pipeline.predict(X_test)
+    per_tree_predictions = _predict_per_tree(pipeline, X_test)
+
+    per_target_r2 = r2_score(y_test, predictions, multioutput="raw_values")
+    per_target_mae = mean_absolute_error(y_test, predictions, multioutput="raw_values")
+    overall_r2 = r2_score(y_test, predictions, multioutput="variance_weighted")
+    overall_mae = mean_absolute_error(y_test, predictions)
+
+    print("Model evaluation (hold-out set):")
+    for name, r2_value, mae_value in zip(
+        training_data.target_names, per_target_r2, per_target_mae
+    ):
+        print(f"  - {name}: R²={r2_value:.3f}, MAE={mae_value:.3f}")
+    print(f"Overall variance-weighted R²: {overall_r2:.3f}")
+    print(f"Overall mean absolute error: {overall_mae:.3f}")
+
+    print(
+        "Generated per-tree predictions with shape {shape}.".format(
+            shape=per_tree_predictions.shape
+        )
+    )
+
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    dump(
+        {
+            "pipeline": pipeline,
+            "feature_names": training_data.feature_names,
+            "target_names": training_data.target_names,
+            "bioclim_numbers": list(SELECTED_BIOCLIM_NUMBERS),
+            "r2_threshold": R2_THRESHOLD,
+            "min_observations": MIN_OBSERVATIONS,
+        },
+        MODEL_PATH,
+    )
+
+    METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    metrics = {
+        "n_estimators": N_ESTIMATORS,
+        "train_samples": int(X_train.shape[0]),
+        "test_samples": int(X_test.shape[0]),
+        "train_fraction": TRAIN_FRACTION,
+        "tree_sample_fraction": TREE_SAMPLE_FRACTION,
+        "tree_feature_fraction": TREE_FEATURE_FRACTION,
+        "overall_r2": float(overall_r2),
+        "overall_mae": float(overall_mae),
+        "per_target_r2": {
+            name: float(value)
+            for name, value in zip(training_data.target_names, per_target_r2)
+        },
+        "per_target_mae": {
+            name: float(value)
+            for name, value in zip(training_data.target_names, per_target_mae)
+        },
+        "feature_names": training_data.feature_names,
+    }
+    with METRICS_PATH.open("w", encoding="utf-8") as fp:
+        json.dump(metrics, fp, indent=2)
+
+    print(f"Saved model to {MODEL_PATH} and metrics to {METRICS_PATH}.")
+    print("Training routine complete.")
+
+
+if __name__ == "__main__":
+    main()
