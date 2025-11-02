@@ -65,7 +65,7 @@ def _build_time_vectors(metadata: np.ndarray) -> tuple[pd.DatetimeIndex, np.ndar
     )
     deltas = dates - dates[0]
     elapsed_days = deltas.total_seconds() / 86400.0
-    return dates, elapsed_days.astype(np.float64)
+    return dates, np.asarray(elapsed_days, dtype=np.float64)
 
 
 def _evaluate_columns(elapsed_days: np.ndarray) -> list[np.ndarray]:
