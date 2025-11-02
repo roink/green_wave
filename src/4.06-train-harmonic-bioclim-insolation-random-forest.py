@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -29,6 +30,7 @@ initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
+JOBLIB_TEMP_DIR = PROJECT_ROOT / "tmp"
 COMBINED_PATH = INTERMEDIATE_DIR / "detrended_ndvi_bioclim_combined.npz"
 MODEL_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_insolation_random_forest.joblib"
 METRICS_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_insolation_random_forest_metrics.json"
@@ -49,10 +51,10 @@ INSOLATION_FEATURE_NAMES = [
 R2_THRESHOLD = 0.6
 MIN_OBSERVATIONS = 24
 TRAIN_FRACTION = 0.8
-MAX_TRAINING_SAMPLES = 500_000
-N_ESTIMATORS = 20
-TREE_SAMPLE_FRACTION = 0.8
-TREE_FEATURE_FRACTION = 0.8
+MAX_TRAINING_SAMPLES = 1_500_000
+N_ESTIMATORS = 40
+TREE_MAX_SAMPLES: int | float | None = None
+TREE_MAX_FEATURES: str | int | float | None = "sqrt"
 RANDOM_STATE = 42
 
 
@@ -319,8 +321,8 @@ def _build_pipeline() -> Pipeline:
                 "model",
                 RandomForestRegressor(
                     n_estimators=N_ESTIMATORS,
-                    max_samples=TREE_SAMPLE_FRACTION,
-                    max_features=TREE_FEATURE_FRACTION,
+                    max_samples=TREE_MAX_SAMPLES,
+                    max_features=TREE_MAX_FEATURES,
                     bootstrap=True,
                     oob_score=True,
                     random_state=RANDOM_STATE,
@@ -351,9 +353,18 @@ def main() -> None:
     )
 
     pipeline = _build_pipeline()
+    training_samples = X_train.shape[0]
+    tree_sample_desc = (
+        "all samples"
+        if TREE_MAX_SAMPLES is None
+        else f"{TREE_MAX_SAMPLES:,d} samples"
+        if isinstance(TREE_MAX_SAMPLES, int)
+        else f"{TREE_MAX_SAMPLES:.2f} fraction"
+    )
     print(
         "Training RandomForestRegressor with "
-        f"{N_ESTIMATORS} trees on {X_train.shape[0]:,d} samples."
+        f"{N_ESTIMATORS} trees on {training_samples:,d} samples "
+        f"(per-tree draw: {tree_sample_desc}, max_features={TREE_MAX_FEATURES!r})."
     )
     pipeline.fit(X_train, y_train)
 
@@ -415,6 +426,8 @@ def main() -> None:
         print(f"  - {name}: {importance:.4f}")
 
     print("Computing permutation importances on the hold-out set...")
+    JOBLIB_TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("JOBLIB_TEMP_FOLDER", str(JOBLIB_TEMP_DIR))
     perm_result = permutation_importance(
         pipeline,
         X_test,
@@ -460,10 +473,11 @@ def main() -> None:
             "r2_threshold": R2_THRESHOLD,
             "min_observations": MIN_OBSERVATIONS,
             "n_estimators": N_ESTIMATORS,
-            "max_samples": TREE_SAMPLE_FRACTION,
-            "max_features": TREE_FEATURE_FRACTION,
+            "max_samples": TREE_MAX_SAMPLES,
+            "max_features": TREE_MAX_FEATURES,
             "oob_score": float(model.oob_score_),
             "combined_dataset": COMBINED_PATH.name,
+            "joblib_temp_folder": str(JOBLIB_TEMP_DIR),
         },
         MODEL_PATH,
     )
@@ -474,8 +488,8 @@ def main() -> None:
         "train_samples": int(X_train.shape[0]),
         "test_samples": int(X_test.shape[0]),
         "train_fraction": TRAIN_FRACTION,
-        "tree_sample_fraction": TREE_SAMPLE_FRACTION,
-        "tree_feature_fraction": TREE_FEATURE_FRACTION,
+        "tree_max_samples": TREE_MAX_SAMPLES,
+        "tree_max_features": TREE_MAX_FEATURES,
         "overall_r2": float(overall_r2),
         "overall_mae": float(overall_mae),
         "per_target_r2": {
@@ -512,6 +526,7 @@ def main() -> None:
             for name, value in zip(training_data.target_names, oob_per_target_mae)
         },
         "combined_dataset": COMBINED_PATH.name,
+        "joblib_temp_folder": str(JOBLIB_TEMP_DIR),
     }
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics, fp, indent=2)
