@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train a random forest ensemble to predict harmonic fit parameters from bioclim variables."""
+"""Train a random forest ensemble to predict detrended harmonic fit parameters from bioclim variables."""
 
 from __future__ import annotations
 
@@ -29,9 +29,9 @@ initialize_script_logging(__file__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
-COMBINED_PATH = INTERMEDIATE_DIR / "ndvi_harmonic_semiannual_trend_bioclim_combined.npz"
-MODEL_PATH = INTERMEDIATE_DIR / "harmonic_bioclim_random_forest.joblib"
-METRICS_PATH = INTERMEDIATE_DIR / "harmonic_bioclim_random_forest_metrics.json"
+COMBINED_PATH = INTERMEDIATE_DIR / "detrended_ndvi_bioclim_combined.npz"
+MODEL_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_random_forest.joblib"
+METRICS_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_random_forest_metrics.json"
 
 SELECTED_BIOCLIM_NUMBERS: tuple[int, ...] = (1, *range(4, 20))
 R2_THRESHOLD = 0.6
@@ -89,7 +89,7 @@ def _load_training_arrays() -> TrainingData:
             "harmonic_r_squared",
             "harmonic_num_observations",
         ],
-        missing_file_hint="Run 0.13-merge-bioclim-with-harmonic-semiannual-trend.py first.",
+        missing_file_hint="Run 0.132-merge-bioclim-with-detrended-harmonic.py first.",
     )
 
     bioclim_stack, bioclim_names = load_bioclim_layers(arrays)
@@ -305,6 +305,7 @@ def main() -> None:
             "max_samples": TREE_SAMPLE_FRACTION,
             "max_features": TREE_FEATURE_FRACTION,
             "oob_score": float(model.oob_score_),
+            "combined_dataset": COMBINED_PATH.name,
         },
         MODEL_PATH,
     )
@@ -347,6 +348,7 @@ def main() -> None:
             name: float(value)
             for name, value in zip(training_data.target_names, oob_per_target_mae)
         },
+        "combined_dataset": COMBINED_PATH.name,
     }
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics, fp, indent=2)
