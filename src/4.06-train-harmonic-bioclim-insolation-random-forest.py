@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train a random forest ensemble to predict detrended harmonic fit parameters from bioclim variables."""
+"""Train a random forest that augments bioclim variables with insolation predictors for detrended NDVI harmonics."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ import numpy as np
 from joblib import dump
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.inspection import permutation_importance
 
 from bioclim_correlation_utils import (
     FeatureLayerSpec,
@@ -32,10 +32,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate"
 JOBLIB_TEMP_DIR = PROJECT_ROOT / "tmp"
 COMBINED_PATH = INTERMEDIATE_DIR / "detrended_ndvi_bioclim_combined.npz"
-MODEL_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_random_forest.joblib"
-METRICS_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_random_forest_metrics.json"
+MODEL_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_insolation_random_forest.joblib"
+METRICS_PATH = INTERMEDIATE_DIR / "detrended_harmonic_bioclim_insolation_random_forest_metrics.json"
+ORBITAL_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "insolation" / "orbit91"
 
 SELECTED_BIOCLIM_NUMBERS: tuple[int, ...] = (1, *range(4, 20))
+INSOLATION_DAYS: tuple[int, ...] = (15, 75, 135, 195, 255, 315)
+# Berger (1978) used a solar constant of 1.95 cal/cm²/min ≈ 1365 W/m²,
+# while Berger (1991) rounded this to 1360 W/m². We standardise on 1365 W/m²
+# to stay consistent with the earlier formulation referenced by the dataset
+# documentation and apply a uniform scale factor to every daily insolation
+# value we derive.
+SOLAR_CONSTANT = 1365.0
+INSOLATION_KYEAR = 0.0
+INSOLATION_FEATURE_NAMES = [
+    f"insolation_day_{day:03d}" for day in INSOLATION_DAYS
+]
 R2_THRESHOLD = 0.6
 MIN_OBSERVATIONS = 24
 TRAIN_FRACTION = 0.8
@@ -53,8 +65,132 @@ class TrainingData:
     features: np.ndarray
     targets: np.ndarray
     feature_names: list[str]
-    feature_indices: list[int]
+    feature_indices: list[int | None]
     target_names: list[str]
+
+
+class OrbitalDataError(FileNotFoundError):
+    """Raised when orbital parameter data required for insolation is missing."""
+
+
+def _load_present_day_orbital_parameters() -> tuple[float, float, float]:
+    if not ORBITAL_DATA_PATH.exists():
+        raise OrbitalDataError(
+            "Orbital parameter file not found at {path}. "
+            "Run download_insolation_data.py to fetch insolation datasets.".format(
+                path=ORBITAL_DATA_PATH
+            )
+        )
+
+    data = np.loadtxt(ORBITAL_DATA_PATH, skiprows=2, usecols=(0, 1, 2, 3))
+    if data.size == 0:
+        raise ValueError(
+            f"Orbital parameter file {ORBITAL_DATA_PATH} does not contain any rows."
+        )
+
+    kyear_column = data[:, 0]
+    present_day_matches = np.where(np.isclose(kyear_column, 0.0))[0]
+    if present_day_matches.size == 0:
+        raise ValueError(
+            "Could not locate present-day (0 kyr) orbital parameters in {path}.".format(
+                path=ORBITAL_DATA_PATH
+            )
+        )
+
+    idx = int(present_day_matches[0])
+    ecc = float(data[idx, 1])
+    long_perh = float(data[idx, 2] + 180.0)
+    obliquity = float(data[idx, 3])
+    return ecc, obliquity, long_perh
+
+
+def _daily_insolation_for_latitudes(
+    latitudes: np.ndarray, days: Sequence[int]
+) -> np.ndarray:
+    ecc, obliquity_deg, long_perh_deg = _load_present_day_orbital_parameters()
+
+    latitudes = np.asarray(latitudes, dtype=np.float64).reshape(-1, 1)
+    days = np.asarray(days, dtype=np.float64).reshape(1, -1)
+
+    epsilon = np.deg2rad(obliquity_deg)
+    omega = np.deg2rad(long_perh_deg)
+    phi = np.deg2rad(latitudes)
+
+    delta_lambda_m = (days - 80.0) * 2 * np.pi / 365.2422
+    beta = np.sqrt(1 - ecc**2)
+    lambda_m0 = -2.0 * (
+        (0.5 * ecc + 0.125 * ecc**3) * (1 + beta) * np.sin(-omega)
+        - 0.25 * ecc**2 * (0.5 + beta) * np.sin(-2 * omega)
+        + 0.125 * ecc**3 * (1 / 3 + beta) * np.sin(-3 * omega)
+    )
+    lambda_m = lambda_m0 + delta_lambda_m
+    lambda_true = (
+        lambda_m
+        + (2 * ecc - 0.25 * ecc**3) * np.sin(lambda_m - omega)
+        + 1.25 * ecc**2 * np.sin(2 * (lambda_m - omega))
+        + (13 / 12) * ecc**3 * np.sin(3 * (lambda_m - omega))
+    )
+
+    delta = np.arcsin(np.sin(epsilon) * np.sin(lambda_true))
+    argument = -np.tan(phi) * np.tan(delta)
+    argument = np.clip(argument, -1.0, 1.0)
+    h0 = np.arccos(argument)
+
+    mask_polar_day = (np.abs(phi) >= (np.pi / 2 - np.abs(delta))) & (phi * delta > 0)
+    mask_polar_night = (np.abs(phi) >= (np.pi / 2 - np.abs(delta))) & (phi * delta <= 0)
+    h0 = np.where(mask_polar_day, np.pi, h0)
+    h0 = np.where(mask_polar_night, 0.0, h0)
+
+    numerator = (1 + ecc * np.cos(lambda_true - omega)) ** 2
+    denominator = (1 - ecc**2) ** 2
+    insolation = (
+        SOLAR_CONSTANT
+        / np.pi
+        * numerator
+        / denominator
+        * (h0 * np.sin(phi) * np.sin(delta) + np.cos(phi) * np.cos(delta) * np.sin(h0))
+    )
+    return insolation.astype(np.float32)
+
+
+def _construct_latitude_grid(
+    arrays: dict[str, np.ndarray], grid_shape: tuple[int, int]
+) -> np.ndarray:
+    if "latitudes" not in arrays:
+        raise KeyError(
+            "Latitude grid missing from combined dataset. Expected 'latitudes' array."
+        )
+
+    latitudes = np.asarray(arrays["latitudes"], dtype=np.float32)
+    latitudes = np.squeeze(latitudes)
+
+    if latitudes.shape == grid_shape:
+        return latitudes
+    if latitudes.ndim == 1 and latitudes.size == grid_shape[0]:
+        return np.broadcast_to(latitudes[:, None], grid_shape)
+    if latitudes.ndim == 1 and latitudes.size == grid_shape[0] * grid_shape[1]:
+        return latitudes.reshape(grid_shape)
+    if latitudes.ndim == 2 and latitudes.shape == (grid_shape[0], 1):
+        return np.broadcast_to(latitudes, grid_shape)
+
+    raise ValueError(
+        "Unsupported latitude array shape {shape}; expected {grid_shape} or broadcastable.".format(
+            shape=latitudes.shape, grid_shape=grid_shape
+        )
+    )
+
+
+def _prepare_insolation_features(
+    arrays: dict[str, np.ndarray],
+    grid_shape: tuple[int, int],
+    valid_indices: np.ndarray,
+) -> tuple[np.ndarray, list[str]]:
+    latitude_grid = _construct_latitude_grid(arrays, grid_shape)
+    latitude_flat = latitude_grid.ravel()
+    latitude_valid = latitude_flat[valid_indices]
+
+    insolation_values = _daily_insolation_for_latitudes(latitude_valid, INSOLATION_DAYS)
+    return insolation_values, list(INSOLATION_FEATURE_NAMES)
 
 
 def _extract_bioclim_number(name: str) -> int | None:
@@ -62,7 +198,9 @@ def _extract_bioclim_number(name: str) -> int | None:
     return int(digits) if digits else None
 
 
-def _select_bioclim_indices(names: Sequence[str], allowed_numbers: Iterable[int]) -> tuple[list[int], list[str]]:
+def _select_bioclim_indices(
+    names: Sequence[str], allowed_numbers: Iterable[int]
+) -> tuple[list[int], list[str]]:
     allowed_set = set(allowed_numbers)
     indices: list[int] = []
     selected_names: list[str] = []
@@ -72,9 +210,7 @@ def _select_bioclim_indices(names: Sequence[str], allowed_numbers: Iterable[int]
             indices.append(idx)
             selected_names.append(str(name))
     if not indices:
-        raise ValueError(
-            "No bioclim variables matched the requested numbers."
-        )
+        raise ValueError("No bioclim variables matched the requested numbers.")
     return indices, selected_names
 
 
@@ -86,6 +222,7 @@ def _load_training_arrays() -> TrainingData:
             "bioclim_names",
             "harmonic_parameters",
             "harmonic_parameter_names",
+            "latitudes",
         ],
         optional_keys=[
             "harmonic_r_squared",
@@ -140,8 +277,24 @@ def _load_training_arrays() -> TrainingData:
 
     print(
         "Prepared "
-        f"{features.shape[0]:,d} samples with {features.shape[1]} features and "
+        f"{features.shape[0]:,d} samples with {features.shape[1]} bioclim features and "
         f"{targets.shape[1]} targets."
+    )
+
+    insolation_features, insolation_names = _prepare_insolation_features(
+        arrays,
+        (rows, cols),
+        valid_indices,
+    )
+    features = np.concatenate([features, insolation_features], axis=1)
+    feature_names = selected_names + insolation_names
+    feature_indices = list(bioclim_indices) + [None] * len(insolation_names)
+
+    print(
+        "Augmented predictors with {count} insolation features ({names}).".format(
+            count=len(insolation_names),
+            names=", ".join(insolation_names),
+        )
     )
 
     if features.shape[0] > MAX_TRAINING_SAMPLES:
@@ -154,8 +307,8 @@ def _load_training_arrays() -> TrainingData:
     return TrainingData(
         features=features.astype(np.float32),
         targets=targets.astype(np.float32),
-        feature_names=selected_names,
-        feature_indices=bioclim_indices,
+        feature_names=feature_names,
+        feature_indices=feature_indices,
         target_names=target_names,
     )
 
@@ -184,9 +337,9 @@ def _predict_per_tree(pipeline: Pipeline, X: np.ndarray) -> np.ndarray:
     feature_transform = pipeline[:-1]
     X_transformed = feature_transform.transform(X)
     model: RandomForestRegressor = pipeline.named_steps["model"]
-    predictions = np.stack([
-        estimator.predict(X_transformed) for estimator in model.estimators_
-    ])
+    predictions = np.stack(
+        [estimator.predict(X_transformed) for estimator in model.estimators_]
+    )
     return predictions
 
 
@@ -312,6 +465,11 @@ def main() -> None:
             "feature_indices": training_data.feature_indices,
             "target_names": training_data.target_names,
             "bioclim_numbers": list(SELECTED_BIOCLIM_NUMBERS),
+            "insolation_days": list(INSOLATION_DAYS),
+            "insolation_feature_names": list(INSOLATION_FEATURE_NAMES),
+            "insolation_kyear": INSOLATION_KYEAR,
+            "solar_constant": SOLAR_CONSTANT,
+            "orbital_source": "orbit91 (NOAA NCEI)",
             "r2_threshold": R2_THRESHOLD,
             "min_observations": MIN_OBSERVATIONS,
             "n_estimators": N_ESTIMATORS,
@@ -347,6 +505,11 @@ def main() -> None:
         "feature_importances": impurity_importances,
         "permutation_importance": permutation_importances,
         "per_tree_prediction_shape": list(per_tree_predictions.shape),
+        "insolation_days": list(INSOLATION_DAYS),
+        "insolation_feature_names": list(INSOLATION_FEATURE_NAMES),
+        "insolation_kyear": INSOLATION_KYEAR,
+        "solar_constant": SOLAR_CONSTANT,
+        "orbital_source": "orbit91 (NOAA NCEI)",
         "oob_score": float(model.oob_score_),
         "oob_overall_r2": None if oob_overall_r2 is None else float(oob_overall_r2),
         "oob_overall_mae": None if oob_overall_mae is None else float(oob_overall_mae),
