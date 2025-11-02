@@ -13,7 +13,7 @@ import sklearn.ensemble._forest as forest
 __all__ = [
     "construct_coordinate_grid",
     "compute_tile_ids",
-    "summarize_tile_counts",
+    "summarize_tile_statistics",
     "tile_bootstrap",
 ]
 
@@ -110,7 +110,7 @@ def compute_tile_ids(
     return encoded, metadata
 
 
-def summarize_tile_counts(tile_ids: np.ndarray) -> dict[str, float]:
+def summarize_tile_statistics(tile_ids: np.ndarray) -> dict[str, float]:
     """Summarise how many samples fall into each spatial tile."""
 
     tile_ids = np.asarray(tile_ids)

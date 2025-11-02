@@ -27,7 +27,7 @@ from bioclim_correlation_utils import (
 from tile_sampling_utils import (
     compute_tile_ids,
     construct_coordinate_grid,
-    summarize_tile_counts,
+    summarize_tile_statistics,
     tile_bootstrap,
 )
 from logging_setup import initialize_script_logging
@@ -239,7 +239,7 @@ def main() -> None:
     tile_ids_train = training_data.tile_ids[train_idx]
     tile_ids_test = training_data.tile_ids[test_idx]
     assert tile_ids_test.shape[0] == X_test.shape[0]
-    tile_stats = summarize_tile_counts(tile_ids_train)
+    tile_stats = summarize_tile_statistics(tile_ids_train)
 
     pipeline = _build_pipeline()
     training_samples = X_train.shape[0]

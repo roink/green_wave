@@ -320,11 +320,11 @@ def _exponential_variogram_model(h: np.ndarray, nugget: float, sill: float, rng:
     return nugget + sill * (1.0 - np.exp(-h / rng))
 
 
-def _fit_variogram(
+def _compute_empirical_semivariogram(
     distances: np.ndarray,
     semivariances: np.ndarray,
     max_bins: int,
-) -> dict[str, float] | None:
+) -> tuple[np.ndarray, np.ndarray, float, int] | None:
     if distances.size == 0:
         return None
 
@@ -361,11 +361,26 @@ def _fit_variogram(
     np.add.at(counts, indices[valid], 1)
 
     mask = counts > 0
-    if mask.sum() < 3:
+    non_empty = int(mask.sum())
+    if non_empty < 3:
         return None
 
     gamma = sums[mask] / counts[mask]
     centers = distance_sums[mask] / counts[mask]
+
+    return centers, gamma, float(max_distance), non_empty
+
+
+def _fit_variogram(
+    distances: np.ndarray,
+    semivariances: np.ndarray,
+    max_bins: int,
+) -> dict[str, float] | None:
+    binned = _compute_empirical_semivariogram(distances, semivariances, max_bins)
+    if binned is None:
+        return None
+
+    centers, gamma, max_distance, bin_count = binned
 
     nugget0 = max(float(gamma[0]), 0.0)
     sill0 = max(float(gamma[-1] - nugget0), 1e-6)
@@ -397,8 +412,47 @@ def _fit_variogram(
         "range_parameter_m": range_param,
         "effective_range_m": effective_range,
         "fit_r2": fit_r2,
-        "bin_count": int(mask.sum()),
+        "bin_count": int(bin_count),
         "max_distance_m": float(max_distance),
+        "fit_method": "exponential",
+    }
+
+
+def _fallback_variogram_range(
+    distances: np.ndarray,
+    semivariances: np.ndarray,
+    max_bins: int,
+) -> dict[str, float | None] | None:
+    binned = _compute_empirical_semivariogram(distances, semivariances, max_bins)
+    if binned is None:
+        return None
+
+    centers, gamma, max_distance, bin_count = binned
+    nugget = float(max(gamma[0], 0.0))
+    sill = float(np.max(gamma))
+    partial_sill = max(sill - nugget, 0.0)
+    threshold = 0.95 * sill
+
+    meeting = np.where(gamma >= threshold)[0]
+    if meeting.size > 0:
+        effective_range = float(centers[meeting[0]])
+    else:
+        effective_range = float(centers[-1])
+
+    if effective_range <= 0 and centers.size > 1:
+        effective_range = float(centers[1])
+    if effective_range <= 0:
+        effective_range = float(centers[-1])
+
+    return {
+        "nugget": nugget,
+        "partial_sill": partial_sill,
+        "range_parameter_m": None,
+        "effective_range_m": effective_range,
+        "fit_r2": None,
+        "bin_count": int(bin_count),
+        "max_distance_m": float(max_distance),
+        "fit_method": "empirical_threshold",
     }
 
 
@@ -415,7 +469,9 @@ def _estimate_for_variable(
     semivariances = 0.5 * (diffs.astype(np.float64) ** 2)
     fit = _fit_variogram(distances, semivariances, bins)
     if fit is None:
-        return None
+        fit = _fallback_variogram_range(distances, semivariances, bins)
+        if fit is None:
+            return None
 
     range_m = fit["effective_range_m"]
     tile_lat_deg = range_m / m_per_deg_lat
@@ -573,11 +629,20 @@ def main() -> None:
                     "fit_r2": None,
                 }
             else:
+                r2_value = fit.get("fit_r2")
+                r2_display = (
+                    f"{r2_value:.3f}"
+                    if isinstance(r2_value, (float, np.floating)) and np.isfinite(r2_value)
+                    else "n/a"
+                )
+                method = fit.get("fit_method", "unknown")
                 print(
-                    "  - {name}: range≈{range_km:.1f} km, recommended tile≈{tile_deg:.3f}° (R²={r2:.3f})".format(
+                    "  - {name}: range≈{range_km:.1f} km, recommended tile≈{tile_deg:.3f}° "
+                    "(method={method}, R²={r2})".format(
                         range_km=fit["effective_range_m"] / 1000.0,
                         tile_deg=fit["recommended_tile_size_deg"],
-                        r2=fit["fit_r2"],
+                        method=method,
+                        r2=r2_display,
                     )
                 )
                 entry = {
