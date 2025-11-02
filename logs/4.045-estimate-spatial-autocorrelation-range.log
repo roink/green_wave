@@ -1,0 +1,33 @@
+=== RUN START (4.045-estimate-spatial-autocorrelation-range) ===
+Loaded arrays from /work/pschluet/green_wave/data/intermediate/detrended_ndvi_bioclim_combined.npz: bioclim, bioclim_names, harmonic_adjusted_r_squared, harmonic_aic, harmonic_amplitude_annual, harmonic_amplitude_semiannual, harmonic_layer_names, harmonic_num_observations, harmonic_parameter_names, harmonic_parameters, harmonic_phase_annual_days, harmonic_phase_semiannual_days, harmonic_r_squared, latitudes, longitudes.
+Loaded 231,903 valid grid cells with 22 variables for autocorrelation analysis.
+Subsampled to 120,000 grid cells for pair sampling.
+Median latitude: 54.38°, metres per degree (lat, lon): (111320.0, 64841.4).
+Prepared 199,999 distinct point pairs spanning up to 4435.2 km.
+Estimating autocorrelation ranges for predictor_bioclim (17 variables)...
+  - BIO01_annual_mean_temperature: range≈396.4 km, recommended tile≈6.114° (method=exponential, R²=0.945)
+  - BIO04_temperature_seasonality: range≈406.1 km, recommended tile≈6.263° (method=exponential, R²=0.872)
+  - BIO05_max_temperature_of_warmest_month: range≈381.8 km, recommended tile≈5.888° (method=exponential, R²=0.956)
+  - BIO06_min_temperature_of_coldest_month: range≈438.7 km, recommended tile≈6.766° (method=exponential, R²=0.957)
+  - BIO07_temperature_annual_range: range≈390.4 km, recommended tile≈6.021° (method=exponential, R²=0.889)
+  - BIO08_mean_temperature_of_wettest_quarter: range≈600.0 km, recommended tile≈9.253° (method=exponential, R²=0.948)
+  - BIO09_mean_temperature_of_driest_quarter: range≈1074.1 km, recommended tile≈16.565° (method=exponential, R²=0.981)
+  - BIO10_mean_temperature_of_warmest_quarter: range≈352.0 km, recommended tile≈5.428° (method=exponential, R²=0.932)
+  - BIO11_mean_temperature_of_coldest_quarter: range≈494.2 km, recommended tile≈7.622° (method=exponential, R²=0.975)
+  - BIO12_annual_precipitation: range≈548.3 km, recommended tile≈8.456° (method=exponential, R²=0.951)
+  - BIO13_precipitation_of_wettest_month: range≈528.4 km, recommended tile≈8.150° (method=exponential, R²=0.942)
+  - BIO14_precipitation_of_driest_month: range≈663.1 km, recommended tile≈10.226° (method=exponential, R²=0.971)
+  - BIO15_precipitation_seasonality: range≈1355.5 km, recommended tile≈20.905° (method=exponential, R²=0.964)
+  - BIO16_precipitation_of_wettest_quarter: range≈545.6 km, recommended tile≈8.414° (method=exponential, R²=0.943)
+  - BIO17_precipitation_of_driest_quarter: range≈657.4 km, recommended tile≈10.138° (method=exponential, R²=0.971)
+  - BIO18_precipitation_of_warmest_quarter: range≈961.8 km, recommended tile≈14.832° (method=exponential, R²=0.984)
+  - BIO19_precipitation_of_coldest_quarter: range≈463.8 km, recommended tile≈7.153° (method=exponential, R²=0.935)
+Estimating autocorrelation ranges for target_harmonics (5 variables)...
+  - beta0: range≈331.2 km, recommended tile≈5.108° (method=exponential, R²=0.950)
+  - beta1_cos1: range≈2156.5 km, recommended tile≈33.258° (method=exponential, R²=0.935)
+  - beta2_sin1: range≈765.3 km, recommended tile≈11.802° (method=exponential, R²=0.930)
+  - beta3_cos2: range≈269.0 km, recommended tile≈4.148° (method=exponential, R²=0.866)
+  - beta4_sin2: range≈376.8 km, recommended tile≈5.811° (method=exponential, R²=0.911)
+Wrote spatial autocorrelation summary to /work/pschluet/green_wave/data/intermediate/spatial_autocorrelation_ranges.json.
+Analysis complete.
+=== RUN FINISH (4.045-estimate-spatial-autocorrelation-range) ===

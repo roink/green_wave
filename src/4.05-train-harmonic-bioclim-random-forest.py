@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 import numpy as np
-from joblib import dump
+from joblib import dump, parallel_backend
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 from sklearn.inspection import permutation_importance
 
@@ -23,6 +23,12 @@ from bioclim_correlation_utils import (
     load_bioclim_layers,
     load_feature_layers,
     load_npz_arrays,
+)
+from tile_sampling_utils import (
+    compute_tile_ids,
+    construct_coordinate_grid,
+    summarize_tile_statistics,
+    tile_bootstrap,
 )
 from logging_setup import initialize_script_logging
 
@@ -44,6 +50,8 @@ N_ESTIMATORS = 40
 TREE_MAX_SAMPLES: int | float | None = None
 TREE_MAX_FEATURES: str | int | float | None = "sqrt"
 RANDOM_STATE = 42
+TILE_SIZE_DEGREES = 1.00
+TREE_TILE_FRACTION = 0.5
 
 
 @dataclass(frozen=True)
@@ -55,6 +63,8 @@ class TrainingData:
     feature_names: list[str]
     feature_indices: list[int]
     target_names: list[str]
+    tile_ids: np.ndarray
+    tile_metadata: dict[str, float]
 
 
 def _extract_bioclim_number(name: str) -> int | None:
@@ -86,6 +96,8 @@ def _load_training_arrays() -> TrainingData:
             "bioclim_names",
             "harmonic_parameters",
             "harmonic_parameter_names",
+            "latitudes",
+            "longitudes",
         ],
         optional_keys=[
             "harmonic_r_squared",
@@ -134,9 +146,19 @@ def _load_training_arrays() -> TrainingData:
     if valid_indices.size == 0:
         raise ValueError("No valid samples remain after applying quality filters.")
 
+    latitude_grid = construct_coordinate_grid(arrays, "latitudes", (rows, cols))
+    longitude_grid = construct_coordinate_grid(arrays, "longitudes", (rows, cols))
+
     flat_features = selected_stack.reshape(len(selected_names), -1).T
     features = flat_features[valid_indices]
     targets = target_matrix[valid_indices]
+
+    tile_ids, tile_metadata = compute_tile_ids(
+        latitude_grid,
+        longitude_grid,
+        valid_indices,
+        tile_size_deg=TILE_SIZE_DEGREES,
+    )
 
     print(
         "Prepared "
@@ -149,7 +171,10 @@ def _load_training_arrays() -> TrainingData:
         selected = rng.choice(features.shape[0], size=MAX_TRAINING_SAMPLES, replace=False)
         features = features[selected]
         targets = targets[selected]
+        tile_ids = tile_ids[selected]
         print(f"Subsampled to {features.shape[0]:,d} samples for manageable training.")
+
+    assert features.shape[0] == targets.shape[0] == tile_ids.shape[0]
 
     return TrainingData(
         features=features.astype(np.float32),
@@ -157,6 +182,8 @@ def _load_training_arrays() -> TrainingData:
         feature_names=selected_names,
         feature_indices=bioclim_indices,
         target_names=target_names,
+        tile_ids=tile_ids,
+        tile_metadata=tile_metadata,
     )
 
 
@@ -192,15 +219,43 @@ def _predict_per_tree(pipeline: Pipeline, X: np.ndarray) -> np.ndarray:
 
 def main() -> None:
     training_data = _load_training_arrays()
-    X_train, X_test, y_train, y_test = train_test_split(
-        training_data.features,
-        training_data.targets,
+
+    splitter = GroupShuffleSplit(
+        n_splits=1,
         train_size=TRAIN_FRACTION,
         random_state=RANDOM_STATE,
     )
+    train_idx, test_idx = next(
+        splitter.split(
+            training_data.features,
+            training_data.targets,
+            groups=training_data.tile_ids,
+        )
+    )
+    X_train = training_data.features[train_idx]
+    X_test = training_data.features[test_idx]
+    y_train = training_data.targets[train_idx]
+    y_test = training_data.targets[test_idx]
+    tile_ids_train = training_data.tile_ids[train_idx]
+    tile_ids_test = training_data.tile_ids[test_idx]
+    assert tile_ids_test.shape[0] == X_test.shape[0]
+    tile_stats = summarize_tile_statistics(tile_ids_train)
 
     pipeline = _build_pipeline()
     training_samples = X_train.shape[0]
+    unique_train_tiles = np.unique(tile_ids_train)
+    print(
+        "Tile-aware bootstrap will operate on "
+        f"{unique_train_tiles.size} spatial tiles (tile size {TILE_SIZE_DEGREES:.2f}°) "
+        f"with a sampling fraction of {TREE_TILE_FRACTION:.2f}."
+    )
+    print(
+        "Training tile occupancy: min={min_count}, median={median:.1f}, max={max_count} cells".format(
+            min_count=tile_stats["train_tile_cell_count_min"],
+            median=tile_stats["train_tile_cell_count_median"],
+            max_count=tile_stats["train_tile_cell_count_max"],
+        )
+    )
     tree_sample_desc = (
         "all samples"
         if TREE_MAX_SAMPLES is None
@@ -213,7 +268,9 @@ def main() -> None:
         f"{N_ESTIMATORS} trees on {training_samples:,d} samples "
         f"(per-tree draw: {tree_sample_desc}, max_features={TREE_MAX_FEATURES!r})."
     )
-    pipeline.fit(X_train, y_train)
+    with tile_bootstrap(tile_ids_train, TREE_TILE_FRACTION):
+        with parallel_backend("threading"):
+            pipeline.fit(X_train, y_train)
 
     model: RandomForestRegressor = pipeline.named_steps["model"]
     print(f"Random forest OOB R² score: {model.oob_score_:.3f}")
@@ -318,6 +375,10 @@ def main() -> None:
             "max_samples": TREE_MAX_SAMPLES,
             "max_features": TREE_MAX_FEATURES,
             "oob_score": float(model.oob_score_),
+            "tile_size_degrees": TILE_SIZE_DEGREES,
+            "tile_sampling_fraction": TREE_TILE_FRACTION,
+            "tile_metadata": training_data.tile_metadata,
+            "tile_statistics": tile_stats,
             "combined_dataset": COMBINED_PATH.name,
             "joblib_temp_folder": str(JOBLIB_TEMP_DIR),
         },
@@ -348,6 +409,9 @@ def main() -> None:
         "permutation_importance": permutation_importances,
         "per_tree_prediction_shape": list(per_tree_predictions.shape),
         "oob_score": float(model.oob_score_),
+        "tile_size_degrees": TILE_SIZE_DEGREES,
+        "tile_sampling_fraction": TREE_TILE_FRACTION,
+        "tile_metadata": training_data.tile_metadata,
         "oob_overall_r2": None if oob_overall_r2 is None else float(oob_overall_r2),
         "oob_overall_mae": None if oob_overall_mae is None else float(oob_overall_mae),
         "oob_per_target_r2": None
@@ -365,6 +429,9 @@ def main() -> None:
         "combined_dataset": COMBINED_PATH.name,
         "joblib_temp_folder": str(JOBLIB_TEMP_DIR),
     }
+    metrics.update(tile_stats)
+    metrics["tile_statistics"] = tile_stats
+    metrics["training_tile_count"] = tile_stats["training_tile_count"]
     with METRICS_PATH.open("w", encoding="utf-8") as fp:
         json.dump(metrics, fp, indent=2)
 
