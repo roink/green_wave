@@ -3,48 +3,50 @@ Loaded arrays from /work/pschluet/green_wave/data/intermediate/detrended_ndvi_bi
 Selected 17 bioclim features for modelling.
 Prepared 3,864,298 samples with 17 features and 5 targets.
 Subsampled to 1,500,000 samples for manageable training.
-Training RandomForestRegressor with 40 trees on 1,200,000 samples (per-tree draw: all samples, max_features='sqrt').
-Random forest OOB R² score: 0.966
+Tile-aware bootstrap will operate on 11476 spatial tiles (tile size 1.00°) with a sampling fraction of 0.50.
+Training tile occupancy: min=1, median=136.0, max=188 cells
+Training RandomForestRegressor with 40 trees on 1,196,613 samples (per-tree draw: all samples, max_features='sqrt').
+Random forest OOB R² score: 0.944
 OOB evaluation:
-  - beta0: R²=0.976, MAE=209.863
-  - beta1_cos1: R²=0.979, MAE=153.266
-  - beta2_sin1: R²=0.967, MAE=101.457
-  - beta3_cos2: R²=0.968, MAE=84.691
-  - beta4_sin2: R²=0.941, MAE=83.013
-  Overall variance-weighted R²: 0.974
-  Overall mean absolute error: 126.458
+  - beta0: R²=0.962, MAE=277.740
+  - beta1_cos1: R²=0.962, MAE=215.657
+  - beta2_sin1: R²=0.945, MAE=141.141
+  - beta3_cos2: R²=0.946, MAE=115.402
+  - beta4_sin2: R²=0.907, MAE=109.455
+  Overall variance-weighted R²: 0.957
+  Overall mean absolute error: 171.879
 Model evaluation (hold-out set):
-  - beta0: R²=0.978, MAE=202.826
-  - beta1_cos1: R²=0.981, MAE=147.670
-  - beta2_sin1: R²=0.972, MAE=97.590
-  - beta3_cos2: R²=0.970, MAE=81.834
-  - beta4_sin2: R²=0.945, MAE=80.205
-Overall variance-weighted R²: 0.977
-Overall mean absolute error: 122.025
-Generated per-tree predictions with shape (40, 300000, 5).
+  - beta0: R²=0.951, MAE=318.753
+  - beta1_cos1: R²=0.953, MAE=248.465
+  - beta2_sin1: R²=0.933, MAE=161.538
+  - beta3_cos2: R²=0.930, MAE=133.307
+  - beta4_sin2: R²=0.878, MAE=125.596
+Overall variance-weighted R²: 0.946
+Overall mean absolute error: 197.532
+Generated per-tree predictions with shape (40, 303387, 5).
 Top impurity-based feature importances:
-  - BIO11_mean_temperature_of_coldest_quarter: 0.1415
-  - BIO06_min_temperature_of_coldest_month: 0.1160
-  - BIO01_annual_mean_temperature: 0.0954
-  - BIO10_mean_temperature_of_warmest_quarter: 0.0871
-  - BIO05_max_temperature_of_warmest_month: 0.0837
-  - BIO09_mean_temperature_of_driest_quarter: 0.0747
-  - BIO04_temperature_seasonality: 0.0715
-  - BIO07_temperature_annual_range: 0.0529
-  - BIO12_annual_precipitation: 0.0520
-  - BIO18_precipitation_of_warmest_quarter: 0.0441
+  - BIO11_mean_temperature_of_coldest_quarter: 0.1438
+  - BIO06_min_temperature_of_coldest_month: 0.1148
+  - BIO10_mean_temperature_of_warmest_quarter: 0.0971
+  - BIO01_annual_mean_temperature: 0.0917
+  - BIO05_max_temperature_of_warmest_month: 0.0847
+  - BIO09_mean_temperature_of_driest_quarter: 0.0746
+  - BIO04_temperature_seasonality: 0.0711
+  - BIO12_annual_precipitation: 0.0544
+  - BIO07_temperature_annual_range: 0.0525
+  - BIO18_precipitation_of_warmest_quarter: 0.0457
 Computing permutation importances on the hold-out set...
 Top permutation-based feature importances:
-  - BIO11_mean_temperature_of_coldest_quarter: mean=0.1535, std=0.0004
-  - BIO01_annual_mean_temperature: mean=0.1499, std=0.0004
-  - BIO10_mean_temperature_of_warmest_quarter: mean=0.0868, std=0.0001
-  - BIO04_temperature_seasonality: mean=0.0811, std=0.0002
-  - BIO06_min_temperature_of_coldest_month: mean=0.0744, std=0.0002
-  - BIO05_max_temperature_of_warmest_month: mean=0.0729, std=0.0001
-  - BIO12_annual_precipitation: mean=0.0675, std=0.0001
-  - BIO18_precipitation_of_warmest_quarter: mean=0.0493, std=0.0002
-  - BIO07_temperature_annual_range: mean=0.0446, std=0.0001
-  - BIO08_mean_temperature_of_wettest_quarter: mean=0.0443, std=0.0000
+  - BIO11_mean_temperature_of_coldest_quarter: mean=0.1418, std=0.0002
+  - BIO01_annual_mean_temperature: mean=0.1375, std=0.0002
+  - BIO10_mean_temperature_of_warmest_quarter: mean=0.0948, std=0.0002
+  - BIO04_temperature_seasonality: mean=0.0684, std=0.0001
+  - BIO05_max_temperature_of_warmest_month: mean=0.0661, std=0.0001
+  - BIO06_min_temperature_of_coldest_month: mean=0.0658, std=0.0002
+  - BIO12_annual_precipitation: mean=0.0617, std=0.0002
+  - BIO18_precipitation_of_warmest_quarter: mean=0.0444, std=0.0001
+  - BIO07_temperature_annual_range: mean=0.0388, std=0.0001
+  - BIO09_mean_temperature_of_driest_quarter: mean=0.0374, std=0.0001
 Saved model to /work/pschluet/green_wave/data/intermediate/detrended_harmonic_bioclim_random_forest.joblib and metrics to /work/pschluet/green_wave/data/intermediate/detrended_harmonic_bioclim_random_forest_metrics.json.
 Training routine complete.
 === RUN FINISH (4.05-train-harmonic-bioclim-random-forest) ===

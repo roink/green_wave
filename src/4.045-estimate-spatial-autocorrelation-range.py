@@ -38,6 +38,9 @@ DEFAULT_PAIR_SAMPLES = 200_000
 DEFAULT_BINS = 24
 RANDOM_STATE = 42
 
+# Global cap for max lag (in meters) applied inside _compute_empirical_semivariogram
+_MAX_LAG_M: float | None = None
+
 
 class OrbitalDataError(FileNotFoundError):
     """Raised when orbital parameter data required for insolation is missing."""
@@ -302,14 +305,14 @@ def _compute_distances(
     pair_a: np.ndarray,
     pair_b: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    lat_mean = np.mean(latitudes)
-    lon_mean = np.mean(longitudes)
-    y = (latitudes - lat_mean) * m_per_deg_lat
-    x = (longitudes - lon_mean) * m_per_deg_lon
-
-    dx = x[pair_a] - x[pair_b]
-    dy = y[pair_a] - y[pair_b]
-    distances = np.sqrt(dx * dx + dy * dy)
+    # Great-circle distances via haversine (meters)
+    R = 6371000.0
+    phi1 = np.deg2rad(latitudes[pair_a])
+    phi2 = np.deg2rad(latitudes[pair_b])
+    dphi = phi2 - phi1
+    dl = np.deg2rad(longitudes[pair_b] - longitudes[pair_a])
+    a = np.sin(dphi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dl / 2) ** 2
+    distances = 2 * R * np.arcsin(np.sqrt(a))
     positive_mask = distances > 0
     return pair_a[positive_mask], pair_b[positive_mask], distances[positive_mask]
 
@@ -327,6 +330,15 @@ def _compute_empirical_semivariogram(
 ) -> tuple[np.ndarray, np.ndarray, float, int] | None:
     if distances.size == 0:
         return None
+
+    # Optional global cap injected via CLI
+    global _MAX_LAG_M
+    if _MAX_LAG_M is not None:
+        keep = distances <= _MAX_LAG_M
+        if not np.any(keep):
+            return None
+        distances = distances[keep]
+        semivariances = semivariances[keep]
 
     finite_mask = np.isfinite(distances) & np.isfinite(semivariances)
     distances = distances[finite_mask]
@@ -547,7 +559,31 @@ def main() -> None:
         default=DEFAULT_OUTPUT_PATH,
         help="Path to write the JSON summary.",
     )
+    # === New CLI flags ===
+    parser.add_argument(
+        "--bbox",
+        type=float,
+        nargs=4,
+        metavar=("LON_MIN", "LAT_MIN", "LON_MAX", "LAT_MAX"),
+        help="Restrict analysis to a bounding box (in degrees).",
+    )
+    parser.add_argument(
+        "--max-lag-km",
+        type=float,
+        default=None,
+        help="Cap variogram fitting to distances ≤ this many km.",
+    )
+    parser.add_argument(
+        "--detrend",
+        choices=["none", "poly2"],
+        default="none",
+        help="Detrend variables by a polynomial in lat/lon before variogram.",
+    )
     args = parser.parse_args()
+
+    # Wire the global max-lag cap (meters)
+    global _MAX_LAG_M
+    _MAX_LAG_M = None if args.max_lag_km is None else float(args.max_lag_km) * 1000.0
 
     rng = np.random.default_rng(args.seed)
 
@@ -561,6 +597,28 @@ def main() -> None:
     predictor_group, target_group, insolation_group, latitudes, longitudes = (
         _prepare_value_groups(include_insolation, bioclim_numbers)
     )
+
+    # Optional bbox filter
+    if args.bbox:
+        LON_MIN, LAT_MIN, LON_MAX, LAT_MAX = args.bbox
+        in_box = (
+            (longitudes >= LON_MIN)
+            & (longitudes <= LON_MAX)
+            & (latitudes >= LAT_MIN)
+            & (latitudes <= LAT_MAX)
+        )
+        if not np.any(in_box):
+            raise ValueError("BBox mask removed all points.")
+        latitudes = latitudes[in_box]
+        longitudes = longitudes[in_box]
+
+        def _filter_group(group: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+            return {k: v[in_box] for k, v in group.items()}
+
+        predictor_group = _filter_group(predictor_group)
+        target_group = _filter_group(target_group)
+        if insolation_group is not None:
+            insolation_group = _filter_group(insolation_group)
 
     value_groups: dict[str, dict[str, np.ndarray]] = {
         "predictor_bioclim": predictor_group,
@@ -604,13 +662,25 @@ def main() -> None:
         )
     )
 
+    # Simple optional detrend: quadratic in lat/lon
+    def _detrend(values: np.ndarray, lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
+        # X = [1, lat, lon, lat^2, lat*lon, lon^2]
+        X = np.column_stack(
+            [np.ones_like(lat), lat, lon, lat * lat, lat * lon, lon * lon]
+        ).astype(np.float64)
+        beta, *_ = np.linalg.lstsq(X, values.astype(np.float64), rcond=None)
+        return values - X @ beta
+
     variable_results: list[dict[str, float | str | int | None]] = []
 
     for group_name, group_values in sampled_groups.items():
         print(f"Estimating autocorrelation ranges for {group_name} ({len(group_values)} variables)...")
         for name, values in group_values.items():
+            vals = values
+            if args.detrend != "none":
+                vals = _detrend(values, lat_sampled, lon_sampled)
             fit = _estimate_for_variable(
-                values.astype(np.float64),
+                vals.astype(np.float64),
                 pair_a,
                 pair_b,
                 distances,
@@ -639,6 +709,7 @@ def main() -> None:
                 print(
                     "  - {name}: range≈{range_km:.1f} km, recommended tile≈{tile_deg:.3f}° "
                     "(method={method}, R²={r2})".format(
+                        name=name,
                         range_km=fit["effective_range_m"] / 1000.0,
                         tile_deg=fit["recommended_tile_size_deg"],
                         method=method,
@@ -706,6 +777,9 @@ def main() -> None:
             "bioclim_numbers": list(bioclim_numbers),
             "include_insolation": include_insolation,
             "seed": args.seed,
+            "bbox": list(args.bbox) if args.bbox else None,
+            "max_lag_km": args.max_lag_km,
+            "detrend": args.detrend,
         },
         "summary": summary,
         "variables": variable_results,

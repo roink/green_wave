@@ -62,7 +62,7 @@ N_ESTIMATORS = 40
 TREE_MAX_SAMPLES: int | float | None = None
 TREE_MAX_FEATURES: str | int | float | None = "sqrt"
 RANDOM_STATE = 42
-TILE_SIZE_DEGREES = 0.25
+TILE_SIZE_DEGREES = 1.00
 TREE_TILE_FRACTION = 0.5
 
 
