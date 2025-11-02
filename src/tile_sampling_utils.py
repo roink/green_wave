@@ -13,8 +13,15 @@ import sklearn.ensemble._forest as forest
 __all__ = [
     "construct_coordinate_grid",
     "compute_tile_ids",
+    "summarize_tile_counts",
     "tile_bootstrap",
 ]
+
+
+if not hasattr(forest, "_generate_sample_indices"):
+    raise RuntimeError(
+        "Unsupported scikit-learn version: missing _generate_sample_indices in ensemble._forest"
+    )
 
 
 @dataclass(frozen=True)
@@ -103,6 +110,22 @@ def compute_tile_ids(
     return encoded, metadata
 
 
+def summarize_tile_counts(tile_ids: np.ndarray) -> dict[str, float]:
+    """Summarise how many samples fall into each spatial tile."""
+
+    tile_ids = np.asarray(tile_ids)
+    if tile_ids.size == 0:
+        raise ValueError("Cannot summarise tile counts for an empty array.")
+
+    unique_tiles, counts = np.unique(tile_ids.astype(np.int64), return_counts=True)
+    return {
+        "training_tile_count": int(unique_tiles.size),
+        "train_tile_cell_count_min": int(counts.min()),
+        "train_tile_cell_count_median": float(np.median(counts)),
+        "train_tile_cell_count_max": int(counts.max()),
+    }
+
+
 def _build_bootstrap_state(tile_ids: np.ndarray, fraction: float) -> _TileBootstrapState:
     if not 0 < fraction <= 1:
         raise ValueError("Tile sampling fraction must lie in (0, 1].")
@@ -130,7 +153,10 @@ def _tile_generate_sample_indices(random_state, n_samples, n_samples_bootstrap):
     if eligible.size == 0:
         return _ORIGINAL_GENERATE_SAMPLE_INDICES(random_state, n_samples, n_samples_bootstrap)
 
-    draw_count = n_samples_bootstrap if n_samples_bootstrap is not None else eligible.size
+    if n_samples_bootstrap is None:
+        draw_count = eligible.size
+    else:
+        draw_count = min(max(1, int(round(n_samples_bootstrap))), eligible.size)
     sampled = rng.choice(eligible, size=draw_count, replace=True)
     return sampled.astype(np.int32)
 
