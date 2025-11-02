@@ -1,0 +1,51 @@
+=== RUN START (4.06-train-harmonic-bioclim-insolation-random-forest) ===
+Loaded arrays from /work/pschluet/green_wave/data/intermediate/detrended_ndvi_bioclim_combined.npz: bioclim, bioclim_names, harmonic_adjusted_r_squared, harmonic_aic, harmonic_amplitude_annual, harmonic_amplitude_semiannual, harmonic_layer_names, harmonic_num_observations, harmonic_parameter_names, harmonic_parameters, harmonic_phase_annual_days, harmonic_phase_semiannual_days, harmonic_r_squared, latitudes, longitudes.
+Selected 17 bioclim features for modelling.
+Prepared 3,864,298 samples with 17 bioclim features and 5 targets.
+Augmented predictors with 6 insolation features (insolation_day_015, insolation_day_075, insolation_day_135, insolation_day_195, insolation_day_255, insolation_day_315).
+Subsampled to 1,500,000 samples for manageable training.
+Training RandomForestRegressor with 40 trees on 1,200,000 samples (per-tree draw: all samples, max_features='sqrt').
+Random forest OOB R² score: 0.970
+OOB evaluation:
+  - beta0: R²=0.978, MAE=199.360
+  - beta1_cos1: R²=0.982, MAE=142.398
+  - beta2_sin1: R²=0.971, MAE=93.946
+  - beta3_cos2: R²=0.971, MAE=79.739
+  - beta4_sin2: R²=0.946, MAE=78.888
+  Overall variance-weighted R²: 0.977
+  Overall mean absolute error: 118.866
+Model evaluation (hold-out set):
+  - beta0: R²=0.980, MAE=193.043
+  - beta1_cos1: R²=0.984, MAE=137.893
+  - beta2_sin1: R²=0.976, MAE=90.735
+  - beta3_cos2: R²=0.973, MAE=77.110
+  - beta4_sin2: R²=0.950, MAE=76.197
+Overall variance-weighted R²: 0.979
+Overall mean absolute error: 114.995
+Generated per-tree predictions with shape (40, 300000, 5).
+Top impurity-based feature importances:
+  - BIO11_mean_temperature_of_coldest_quarter: 0.1450
+  - BIO01_annual_mean_temperature: 0.1011
+  - BIO10_mean_temperature_of_warmest_quarter: 0.0924
+  - insolation_day_015: 0.0640
+  - insolation_day_315: 0.0603
+  - BIO05_max_temperature_of_warmest_month: 0.0603
+  - BIO09_mean_temperature_of_driest_quarter: 0.0592
+  - BIO06_min_temperature_of_coldest_month: 0.0391
+  - insolation_day_255: 0.0390
+  - BIO12_annual_precipitation: 0.0372
+Computing permutation importances on the hold-out set...
+Top permutation-based feature importances:
+  - BIO11_mean_temperature_of_coldest_quarter: mean=0.0970, std=0.0002
+  - BIO01_annual_mean_temperature: mean=0.0736, std=0.0002
+  - BIO10_mean_temperature_of_warmest_quarter: mean=0.0725, std=0.0001
+  - BIO05_max_temperature_of_warmest_month: mean=0.0460, std=0.0001
+  - BIO12_annual_precipitation: mean=0.0397, std=0.0001
+  - insolation_day_015: mean=0.0334, std=0.0001
+  - insolation_day_315: mean=0.0312, std=0.0001
+  - BIO08_mean_temperature_of_wettest_quarter: mean=0.0283, std=0.0001
+  - insolation_day_255: mean=0.0270, std=0.0001
+  - BIO06_min_temperature_of_coldest_month: mean=0.0269, std=0.0001
+Saved model to /work/pschluet/green_wave/data/intermediate/detrended_harmonic_bioclim_insolation_random_forest.joblib and metrics to /work/pschluet/green_wave/data/intermediate/detrended_harmonic_bioclim_insolation_random_forest_metrics.json.
+Training routine complete.
+=== RUN FINISH (4.06-train-harmonic-bioclim-insolation-random-forest) ===
