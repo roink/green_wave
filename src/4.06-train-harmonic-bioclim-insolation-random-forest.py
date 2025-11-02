@@ -36,6 +36,16 @@ ORBITAL_DATA_PATH = PROJECT_ROOT / "data" / "raw" / "insolation" / "orbit91"
 
 SELECTED_BIOCLIM_NUMBERS: tuple[int, ...] = (1, *range(4, 20))
 INSOLATION_DAYS: tuple[int, ...] = (15, 75, 135, 195, 255, 315)
+# Berger (1978) used a solar constant of 1.95 cal/cm²/min ≈ 1365 W/m²,
+# while Berger (1991) rounded this to 1360 W/m². We standardise on 1365 W/m²
+# to stay consistent with the earlier formulation referenced by the dataset
+# documentation and apply a uniform scale factor to every daily insolation
+# value we derive.
+SOLAR_CONSTANT = 1365.0
+INSOLATION_KYEAR = 0.0
+INSOLATION_FEATURE_NAMES = [
+    f"insolation_day_{day:03d}" for day in INSOLATION_DAYS
+]
 R2_THRESHOLD = 0.6
 MIN_OBSERVATIONS = 24
 TRAIN_FRACTION = 0.8
@@ -129,11 +139,10 @@ def _daily_insolation_for_latitudes(
     h0 = np.where(mask_polar_day, np.pi, h0)
     h0 = np.where(mask_polar_night, 0.0, h0)
 
-    so = 1365.0
     numerator = (1 + ecc * np.cos(lambda_true - omega)) ** 2
     denominator = (1 - ecc**2) ** 2
     insolation = (
-        so
+        SOLAR_CONSTANT
         / np.pi
         * numerator
         / denominator
@@ -179,8 +188,7 @@ def _prepare_insolation_features(
     latitude_valid = latitude_flat[valid_indices]
 
     insolation_values = _daily_insolation_for_latitudes(latitude_valid, INSOLATION_DAYS)
-    feature_names = [f"insolation_day_{day:03d}" for day in INSOLATION_DAYS]
-    return insolation_values, feature_names
+    return insolation_values, list(INSOLATION_FEATURE_NAMES)
 
 
 def _extract_bioclim_number(name: str) -> int | None:
@@ -281,10 +289,9 @@ def _load_training_arrays() -> TrainingData:
     feature_indices = list(bioclim_indices) + [None] * len(insolation_names)
 
     print(
-        "Augmented predictors with {count} insolation features (days: {days})."
-        .format(
+        "Augmented predictors with {count} insolation features ({names}).".format(
             count=len(insolation_names),
-            days=", ".join(str(day) for day in INSOLATION_DAYS),
+            names=", ".join(insolation_names),
         )
     )
 
@@ -446,6 +453,10 @@ def main() -> None:
             "target_names": training_data.target_names,
             "bioclim_numbers": list(SELECTED_BIOCLIM_NUMBERS),
             "insolation_days": list(INSOLATION_DAYS),
+            "insolation_feature_names": list(INSOLATION_FEATURE_NAMES),
+            "insolation_kyear": INSOLATION_KYEAR,
+            "solar_constant": SOLAR_CONSTANT,
+            "orbital_source": "orbit91 (NOAA NCEI)",
             "r2_threshold": R2_THRESHOLD,
             "min_observations": MIN_OBSERVATIONS,
             "n_estimators": N_ESTIMATORS,
@@ -480,6 +491,10 @@ def main() -> None:
         "permutation_importance": permutation_importances,
         "per_tree_prediction_shape": list(per_tree_predictions.shape),
         "insolation_days": list(INSOLATION_DAYS),
+        "insolation_feature_names": list(INSOLATION_FEATURE_NAMES),
+        "insolation_kyear": INSOLATION_KYEAR,
+        "solar_constant": SOLAR_CONSTANT,
+        "orbital_source": "orbit91 (NOAA NCEI)",
         "oob_score": float(model.oob_score_),
         "oob_overall_r2": None if oob_overall_r2 is None else float(oob_overall_r2),
         "oob_overall_mae": None if oob_overall_mae is None else float(oob_overall_mae),
